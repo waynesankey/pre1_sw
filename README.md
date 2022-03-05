@@ -13,3 +13,5 @@ Issue #1: upon release of standby, main screen items come back delayed in time.
 ### Release 1.2.1
 Date:
 Fixed Issue #1.
+To Do:
+Add Tube Timer
