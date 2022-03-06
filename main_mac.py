@@ -305,17 +305,21 @@ class Mute():
             mus.vol_up_soft(volume, volume)
         return
     
-    # use thius to detect current switch position and execute mute functions
+    # use this to detect current switch position and execute mute functions if the mute state does
+    # not match the switch
     def execute_mute(self):
         self.mute_switch = mute_in.value()
-        self.mute_switch_last = self.mute_switch
-        self.mute_state = MUTE_ST_OFF
-        if (self.mute_switch == MUTE_ON):
+        if ((self.mute_switch == MUTE_ON) and (self.mute_state == MUTE_ST_OFF)):
+            self.mute_switch_last = self.mute_switch
             self.mute_state = MUTE_ST_ON
-        self.update_mute()    
+            self.update_mute()
+        if((self.mute_switch == MUTE_OFF) and (self.mute_state == MUTE_ST_ON)):
+            self.mute_switch_last = self.mute_switch
+            self.mute_state = MUTE_ST_OFF
+            self.update_mute()
         return
         
-    # use this to mute the outputs without first getting switch setting - for example when on standby
+    # use this to mute the outputs without first getting switch setting - for example when going on standby
     def force_mute(self):
         self.mute_state = MUTE_ST_ON
         self.update_mute()
@@ -971,11 +975,11 @@ while True:
             operate_setting = op.current_operate()
             if (operate_setting == OPERATE_ST_ON):
                 dis.clear_display()
-                vol.update_volume(0)   #update the volume with no change
-                sel.update_select(0)   #update select with no change
-                mut.execute_mute()
                 dis.operate_on()
                 tmp.update()
+                mut.update_mute()
+                sel.update_select(0)   #update select with no change
+                vol.update_volume(0)   #update the volume with no change
                 state = STATE_OPERATE
             elif (operate_setting == OPERATE_ST_OFF):
                 dis.clear_display()
@@ -991,9 +995,9 @@ while True:
         #if (loop_counter%100 == 0):
             #print("in STATE_OPERATE")
         if (operate_setting == OPERATE_ST_OFF):
+            mut.force_mute()
             rel.bplus_off()
             rel.filament_off()
-            mut.force_mute()
             dis.operate_off()
             state = STATE_STANDBY
         else:
