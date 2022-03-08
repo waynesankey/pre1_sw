@@ -17,5 +17,8 @@ Issue #1: upon release of standby, main screen items come back delayed in time.
 ### Release 1.2.1
 Date:
 Fixed Issue #1.
+
+Added standby screen same as the STM32 program - different from the operational screen.
+
 To Do:
 Add Tube Timer

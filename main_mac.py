@@ -20,6 +20,7 @@ REG_CLEAR = 0x51
 REG_CONTRAST = 0x52
 REG_BRIGHTNESS = 0x53
 INITIAL_BRIGHTNESS = 0x02
+STANDBY_BRIGHTNESS = 0x02
 
 DISPLAY_LINE1 = 0x00
 DISPLAY_LINE2 = 0x40
@@ -28,6 +29,7 @@ DISPLAY_LINE4 = 0x54
 
 VOLUME_POSITION = 7
 MUTE_POSITION = 16
+STANDBY_POSITION = 0x47
 
 
 
@@ -560,6 +562,17 @@ class Display():
         i2c.writeto(DISPLAY_ADDR, buf)
         return
 
+
+    def standby_screen(self):
+        self.clear_display()
+        self.set_brightness(STANDBY_BRIGHTNESS)
+        buf = bytearray([REG_PREFIX, REG_POSITION, STANDBY_POSITION])
+        i2c.writeto(DISPLAY_ADDR, buf)
+        buf = bytearray("STANDBY")
+        i2c.writeto(DISPLAY_ADDR, buf)
+        return
+
+
     def display_temp(self, temperature):
         buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE3])
         i2c.writeto(DISPLAY_ADDR, buf)
@@ -998,7 +1011,7 @@ while True:
             mut.force_mute()
             rel.bplus_off()
             rel.filament_off()
-            dis.operate_off()
+            dis.standby_screen()
             state = STATE_STANDBY
         else:
             mute_change = mut.change()
