@@ -268,6 +268,15 @@ class Sel_encoder():
         return    
     
 
+    def select_immediate(self):
+        """operate currently selected input with no delay for example at state changes"""
+        dis.display_select(self.select)
+        rel.select(self.select)
+        return
+
+
+    def get_current_select(self):
+        return self.select
 
 
 
@@ -321,10 +330,32 @@ class Mute():
             self.update_mute()
         return
         
-    # use this to mute the outputs without first getting switch setting - for example when going on standby
+
     def force_mute(self):
+        """use this to mute the outputs without first getting switch setting - for example when going on standby"""
         self.mute_state = MUTE_ST_ON
         self.update_mute()
+        return
+
+
+    def mute_immediate(self):
+        """instant set mute relay and display to switch positionif mute ON, soft mute release if OFF"""
+        self.mute_switch = mute_in.value()
+        self.mute_switch_last = self.mute_switch
+        if(self.mute_switch == MUTE_ON):
+            self.mute_state = MUTE_ST_ON
+            dis.mute_on()
+            mus.vol_mute_immediate()
+            rel.mute_on()
+            rel.deselect_all()
+
+        else:
+            self.mute_state = MUTE_ST_OFF
+            dis.mute_off()
+            rel.mute_off()          
+            sel.select_immediate()   #update select with no change
+            volume = vol.get_current_volume()
+            mus.vol_up_soft(volume, volume) 
         return
         
         
@@ -689,7 +720,7 @@ class Relay():
     def select(self, input_select):
         #first have to deselect whatever was already selected then give a bit of time to settle
         self.deselect_all()
-        time.sleep_ms(10)
+        time.sleep_ms(REL_LATCH_TIME)
         if (input_select == SELECT_STREAMING):
             self.select_streaming()
         elif(input_select == SELECT_CD):
@@ -820,7 +851,11 @@ class Muses72320():
             largest -= 1
             time.sleep_ms(25)
         return        
-        
+
+    def vol_mute_immediate(self):
+        """volume chips to 0 with no delay"""
+        self.write(0,0)
+        return
 
 
 class MPC9808():
@@ -989,10 +1024,12 @@ while True:
             if (operate_setting == OPERATE_ST_ON):
                 dis.clear_display()
                 dis.operate_on()
+                curr_volume = vol.get_current_volume()
+                curr_select = sel.get_current_select()
+                dis.display_select(curr_select)
+                dis.display_volume(curr_volume)
                 tmp.update()
-                mut.update_mute()
-                sel.update_select(0)   #update select with no change
-                vol.update_volume(0)   #update the volume with no change
+                mut.mute_immediate()
                 state = STATE_OPERATE
             elif (operate_setting == OPERATE_ST_OFF):
                 dis.clear_display()
