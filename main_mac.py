@@ -1032,7 +1032,7 @@ while True:
                 tmp.update()
                 mut.mute_immediate()
                 state = STATE_OPERATE
-            elif (operate_setting == OPERATE_ST_OFF):
+            else:
                 dis.clear_display()
                 vol.update_volume(0)   #update the volume with no change
                 sel.update_select(0)   #update select with no change
