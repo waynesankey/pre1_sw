@@ -1,6 +1,6 @@
-from machine import Pin, I2C
+from machine import Pin, I2C, SPI
 import time
-#from pico_i2c_lcd import I2cLcd
+import _thread
 
 ###################################################################
 # SW Version
@@ -164,6 +164,9 @@ mute_in = Pin(9, Pin.IN, Pin.PULL_UP)
 
 # Operate Switch with pullups
 operate_in = Pin(8, Pin.IN, Pin.PULL_UP)
+
+# Led to flash with other core
+led_red = Pin(25, Pin.OUT)
 
 ###################################################################
 # Classes
@@ -978,22 +981,20 @@ bplus_count = BPLUS_DELAY
 # Functions
 
 
+###################################################################
+# Start core 1 (not sure core number actually but we'll call this one #1)
 
-
-
-
+def blink_led():
+    while True:
+        led_red.value(1)
+        time.sleep(1)
+        led_red.value(0)
+        time.sleep(1)
+    
+_thread.start_new_thread(blink_led, ())
 
 ###################################################################
-# Initialization functions
-
-# bug in SPI ihnterface, do an initial write of mute relay on only
-
-
-
-
-
-###################################################################
-# Main program loop
+# Main program loop - core 0 (note sure which core but we'll call this one #0)
 while True:
     
     if (state == STATE_STARTUP):
