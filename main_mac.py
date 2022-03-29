@@ -1,4 +1,4 @@
-from machine import Pin, I2C, SPI
+from machine import Pin, I2C
 import time
 import _thread
 
@@ -984,12 +984,13 @@ bplus_count = BPLUS_DELAY
 ###################################################################
 # Start core 1 (not sure core number actually but we'll call this one #1)
 
+
 def blink_led():
     while True:
-        led_red.value(1)
-        time.sleep(1)
-        led_red.value(0)
-        time.sleep(1)
+        #led_red.value(1)
+        time.sleep_ms(100)
+        #led_red.value(0)
+        time.sleep_ms(100)
     
 _thread.start_new_thread(blink_led, ())
 
