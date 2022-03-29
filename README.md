@@ -21,6 +21,6 @@ Fixed Issue #1.  (not complete)
 Added standby screen same as the STM32 program - different from the operational screen.
 
 To Do:
-Add Tube Timer
-Add balance control
-testing 123
+* Add Tube Timer
+* Add balance control
+* testing 123
