@@ -4,7 +4,7 @@ import _thread
 
 ###################################################################
 # SW Version
-SW_VERSION = "1.1.2"
+SW_VERSION = "1.1.4"
 
 
 ###################################################################
@@ -985,14 +985,14 @@ bplus_count = BPLUS_DELAY
 # Start core 1 (not sure core number actually but we'll call this one #1)
 
 
-def blink_led():
-    while True:
-        #led_red.value(1)
-        time.sleep_ms(100)
-        #led_red.value(0)
-        time.sleep_ms(100)
-    
-_thread.start_new_thread(blink_led, ())
+#def blink_led():
+#    while True:
+#        #led_red.value(1)
+#        time.sleep_ms(100)
+#        #led_red.value(0)
+#        time.sleep_ms(100)
+#    
+#_thread.start_new_thread(blink_led, ())
 
 ###################################################################
 # Main program loop - core 0 (note sure which core but we'll call this one #0)
@@ -1044,7 +1044,7 @@ while True:
         
     if (state == STATE_OPERATE):
         operate_setting = op.current_operate()
-        #if (loop_counter%100 == 0):
+        #if (loop_counter%1000 == 0):
             #print("in STATE_OPERATE")
         if (operate_setting == OPERATE_ST_OFF):
             mut.force_mute()
@@ -1057,7 +1057,7 @@ while True:
             volume_change = vol.change()
             select_change = sel.change()
             temp_change = 0
-            if (loop_counter%100 == 0):
+            if (loop_counter%1000 == 0):
                 temp_change = tmp.change()
             #print ("volume_change is ", volume_change)
             if(volume_change != 0):
@@ -1073,14 +1073,14 @@ while True:
 
     
     if (state == STATE_STANDBY):
-        if (loop_counter%100 == 0):
-            print("in STATE_STANDBY")
+        #if (loop_counter%1000 == 0):
+        #    print("in STATE_STANDBY")
         operate_setting = op.current_operate()
         if (operate_setting == OPERATE_ST_ON):
             filament_count = FILAMENT_DELAY
             state = STATE_FILAMENT
     
     loop_counter += 1
-    time.sleep_ms(10)
+    #time.sleep_ms(1)
     
     
