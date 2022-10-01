@@ -4,7 +4,7 @@ import _thread
 
 ###################################################################
 # SW Version
-SW_VERSION = "1.1.4"
+SW_VERSION = "1.1.5"
 
 
 ###################################################################
@@ -523,16 +523,23 @@ class Display():
         buf = bytearray("  4P1L Tube Preamp")
         i2c.writeto(DISPLAY_ADDR, buf)
             
-        #line 3
-        buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE3])
+        #line 2
+        buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE2])
         i2c.writeto(DISPLAY_ADDR, buf)
         buf = bytearray("Gingernut Labs 2022")
         i2c.writeto(DISPLAY_ADDR, buf)
         
+        #line 2
+        buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE3])
+        i2c.writeto(DISPLAY_ADDR, buf)
+        buf = bytearray("MicroPython v1.19.1")
+        i2c.writeto(DISPLAY_ADDR, buf)
+        
+        
         #line4
         buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE4])
         i2c.writeto(DISPLAY_ADDR, buf)
-        buf = bytearray("SW Version " + SW_VERSION)
+        buf = bytearray("  SW Version " + SW_VERSION)
         i2c.writeto(DISPLAY_ADDR, buf)
         return
 
@@ -985,14 +992,14 @@ bplus_count = BPLUS_DELAY
 # Start core 1 (not sure core number actually but we'll call this one #1)
 
 
-#def blink_led():
-#    while True:
-#        #led_red.value(1)
-#        time.sleep_ms(100)
-#        #led_red.value(0)
-#        time.sleep_ms(100)
-#    
-#_thread.start_new_thread(blink_led, ())
+def blink_led():
+    while True:
+        led_red.value(1)
+        time.sleep_ms(100)
+        led_red.value(0)
+        time.sleep_ms(100)
+    
+_thread.start_new_thread(blink_led, ())
 
 ###################################################################
 # Main program loop - core 0 (note sure which core but we'll call this one #0)
