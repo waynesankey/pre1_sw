@@ -4,7 +4,7 @@ import _thread
 
 ###################################################################
 # SW Version
-SW_VERSION = "1.1.5"
+SW_VERSION = "1.1.6"
 
 
 ###################################################################
@@ -50,6 +50,8 @@ LEFT_LSB_0 = 0x00
 LEFT_LSB_1 = 0x20
 RIGHT_LSB_0 = 0x01
 RIGHT_LSB_1 = 0x21
+
+MUSES_ATTEN_0 = 0x10
 
 
 ###################################################################
@@ -108,7 +110,7 @@ RELAY_SR_MUTE_ON = 0x0004
 
 ###################################################################
 # Product Constants
-MAX_VOLUME = 60
+MAX_VOLUME = 128
 
 MUTE_ON = 0     # grounded when switch in up position, two lugs go towards bottom of chassis
 MUTE_OFF = 1
@@ -436,6 +438,9 @@ class Display():
  
     
     def display_volume(self, volume):
+        
+        volume = volume>>1
+        
         buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE1])
         i2c.writeto(DISPLAY_ADDR, buf)
         buf = bytearray("       Volume       ")
@@ -796,14 +801,15 @@ class Muses72320():
         #write left chip
         if (left > MAX_VOLUME):
             left = MAX_VOLUME
-        data_left = 136-(left*2)
+        data_left = MUSES_ATTEN_0 + MAX_VOLUME - left
         if (left == 0):
-            data_left = 0xff  #mute
-            
+            data_left = 0xff  #mute    
+        print("Volume chip data is ", data_left)
+        
         #write right chip
         if (right > MAX_VOLUME):
             right = MAX_VOLUME
-        data_right = 136-(right*2)
+        data_right = MUSES_ATTEN_0 + MAX_VOLUME - right
         if (right == 0):
             data_right = 0xff  #mute
         
@@ -841,7 +847,7 @@ class Muses72320():
             print("largest is, writing to chips ", largest, left, right)
             self.write(left, right)
             largest -= 1
-            time.sleep_ms(25)
+            time.sleep_ms(8)
         return
         
     def vol_up_soft(self, left, right):
@@ -859,7 +865,7 @@ class Muses72320():
             print("largest is, writing to chips ", largest, lvol, rvol)
             self.write(lvol, rvol)
             largest -= 1
-            time.sleep_ms(25)
+            time.sleep_ms(8)
         return        
 
     def vol_mute_immediate(self):
