@@ -439,7 +439,10 @@ class Display():
     
     def display_volume(self, volume):
         
-        volume = volume>>1
+        # The input volume value spans 0 to 128 in half dB steps, it's too much range so divide by 4 for the display values.
+        # Using the shift operator means there's no type conversion, it remains an integer and no messing around with the
+        # display type.
+        volume = volume>>2
         
         buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE1])
         i2c.writeto(DISPLAY_ADDR, buf)
