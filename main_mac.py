@@ -967,7 +967,6 @@ class TubeTimer():
     def addSecond(self):
         self.timer = self.timer + 1
         print("time in seconds ", self.timer)
-        self.saveTubeData()
         if ((self.timer % 60) == 0):
             self.addMinute()
         return
@@ -975,28 +974,26 @@ class TubeTimer():
     def addMinute(self):
         self.minutes = self.minutes + 1
         print("minutes timer is ", self.minutes)
-        self.saveTubeData()
+        self.incTubeData()
         return
     
-    def saveTubeData(self):
-        #tubeAge = 0
-        tubeDataFile=open("tubeData.txt", "r+")
+    def incTubeData(self):
+        tubeAge = 0
+        tubeDataFile=open("tubeData.txt", "r")
         tubeAgeStr = tubeDataFile.read()
+        tubeDataFile.close()
         tubeAgeStr.strip
         print("type of tubeAgeStr is ", type(tubeAgeStr))
         print("value of tubeAgeStr = ", tubeAgeStr)
-        #tubeAge = int(tubeAgeStr) + 1
-#        print("type of tubeAge is ", type(tubeAge))
-#        tubeAge = tubeAge + 1
-        
-        #for line in open("tubeData.txt"):
-        #    if line.strip():
-        #        tubeAge = int(line)
-        #        print("tubeAge is ", tubeAge)
+        tubeAge = int(tubeAgeStr) + 1
+        print("type of tubeAge is ", type(tubeAge))
+        print("after addition, tubeAge is ", tubeAge)
+
                 
                 
-        #tubeAgeStr = str(tubeAge)
-        #tubeDataFile.write(tubeAgeStr)
+        tubeAgeStr = str(tubeAge)
+        tubeDataFile=open("tubeData.txt", "w")
+        tubeDataFile.write(tubeAgeStr)
         tubeDataFile.close()
         return
     
