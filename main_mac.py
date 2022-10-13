@@ -1,4 +1,5 @@
-from machine import Pin, I2C
+from machine import Pin, I2C, Timer
+import os
 import time
 import _thread
 
@@ -108,6 +109,10 @@ RELAY_SR_BPLUS_ON = 0x0002
 RELAY_SR_MUTE_ON = 0x0004
 
 
+#timer
+timer1s = 0
+
+
 ###################################################################
 # Product Constants
 MAX_VOLUME = 128
@@ -169,6 +174,21 @@ operate_in = Pin(8, Pin.IN, Pin.PULL_UP)
 
 # Led to flash with other core
 led_red = Pin(25, Pin.OUT)
+
+
+
+
+###################################################################
+# Functions
+def timercallback(t):
+    tim.addSecond()
+    #global timer1s
+    #timer1s = timer1s + 1
+    #print ("seconds timer is ", timer1s)
+    pass
+
+
+
 
 ###################################################################
 # Classes
@@ -932,6 +952,54 @@ class MPC9808():
         return (readval>>4) - (self.temp>>4)   # return nonzero if whole degree or sign has changed
     
     
+class TubeTimer():
+    def __init__(self):
+        self.timer = 0
+        self.minutes = 0
+        
+        #initialize the tube data - but delete this when doing final builds
+        #tubeDataFile=open("tubeData.txt", "r+")
+        #tubeDataFile.write(0)
+        #tubeDataFile.close()
+        return
+    
+    
+    def addSecond(self):
+        self.timer = self.timer + 1
+        print("time in seconds ", self.timer)
+        self.saveTubeData()
+        if ((self.timer % 60) == 0):
+            self.addMinute()
+        return
+    
+    def addMinute(self):
+        self.minutes = self.minutes + 1
+        print("minutes timer is ", self.minutes)
+        self.saveTubeData()
+        return
+    
+    def saveTubeData(self):
+        #tubeAge = 0
+        tubeDataFile=open("tubeData.txt", "r+")
+        tubeAgeStr = tubeDataFile.read()
+        tubeAgeStr.strip
+        print("type of tubeAgeStr is ", type(tubeAgeStr))
+        print("value of tubeAgeStr = ", tubeAgeStr)
+        #tubeAge = int(tubeAgeStr) + 1
+#        print("type of tubeAge is ", type(tubeAge))
+#        tubeAge = tubeAge + 1
+        
+        #for line in open("tubeData.txt"):
+        #    if line.strip():
+        #        tubeAge = int(line)
+        #        print("tubeAge is ", tubeAge)
+                
+                
+        #tubeAgeStr = str(tubeAge)
+        #tubeDataFile.write(tubeAgeStr)
+        tubeDataFile.close()
+        return
+    
         
         
 ###################################################################
@@ -942,7 +1010,7 @@ spiVol = machine.SPI(0, baudrate=100_000, polarity=1, phase=0, bits=8, firstbit=
 spiCsVol = Pin(21, machine.Pin.OUT)
 spiRel = machine.SPI(1, baudrate=200_000, polarity=0, phase=0, bits=8, firstbit=machine.SPI.MSB, sck=Pin(10), mosi=Pin(11), miso=Pin(12)) #pin 20 not needed but apparently must be delcared
 spiCsRel = Pin(13, machine.Pin.OUT)
-
+tim1s = Timer(mode=Timer.PERIODIC, period=1000, callback=timercallback)
 
 
 
@@ -980,6 +1048,7 @@ rel = Relay()
 op =  Operate()
 mus = Muses72320()
 tmp = MPC9808()
+tim = TubeTimer()
 
 
 # set initial state
@@ -993,8 +1062,7 @@ bplus_count = BPLUS_DELAY
 
 
 
-###################################################################
-# Functions
+
 
 
 ###################################################################
