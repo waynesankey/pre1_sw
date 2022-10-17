@@ -983,10 +983,10 @@ class TubeTimer():
         tubeAgeStr = tubeDataFile.read()
         tubeDataFile.close()
         tubeAgeStr.strip
-        print("type of tubeAgeStr is ", type(tubeAgeStr))
-        print("value of tubeAgeStr = ", tubeAgeStr)
+        #print("type of tubeAgeStr is ", type(tubeAgeStr))
+        #print("value of tubeAgeStr = ", tubeAgeStr)
         tubeAge = int(tubeAgeStr) + 1
-        print("type of tubeAge is ", type(tubeAge))
+        #print("type of tubeAge is ", type(tubeAge))
         print("after addition, tubeAge is ", tubeAge)
 
                 
