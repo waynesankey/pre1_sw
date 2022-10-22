@@ -1,9 +1,9 @@
 number,active,ageMin,ageHour
-1,yes,5,0
-2,yes,5,0
+1,yes,5,14
+2,yes,5,22
 3,no,0,0
-4,no,0,0
+4,yes,57,0
 5,no,0,0
-6,no,0,0
-7,no,0,0
-8,no,0,0
+6,maybe,0,0
+7,yes,22,7
+8,yes,23,12

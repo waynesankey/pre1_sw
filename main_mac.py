@@ -989,55 +989,60 @@ class TubeTimer():
                 data.append(lineStr.split(","))
                 print("list of data on one line read from file",data[i])
                 i+=1
-            file.close()
-            
-            #find which column has the tube number
-            i=0
-            for heading in data[0]:
-                if (heading == "number"):
-                    headingNumber = i
-                    print("the number heading is",i)
-                i=i+1
-            
-            #find which column has the "active" data (tube is in the amp and needs its age data updated in real time)
-            i=0
-            for heading in data[0]:
-                if (heading == "active"):
-                    headingActive = i
-                    print("the active heading is",i)
-                i=i+1
                 
-            #find which column has ageMin - the age in minutes
-            i=0
-            for heading in data[0]:
-                if (heading == "ageMin"):
-                    headingAgeMin = i
-                    print("the ageMin heading is",i)
-                i=i+1                       
+        file.close()
             
-            #find which column has ageHour - the age in hours
-            i=0
-            for heading in data[0]:
-                if (heading == "ageHour"):
-                    headingAgeHour = i
-                    print("the ageHour heading is",i)
-                i=i+1                       
+        #find which column has the tube number
+        i=0
+        for heading in data[0]:
+            if (heading == "number"):
+                headingNumber = i
+                print("the number heading is",i)
+            i=i+1
             
+        #find which column has the "active" data (tube is in the amp and needs its age data updated in real time)
+        i=0
+        for heading in data[0]:
+            if (heading == "active"):
+                headingActive = i
+                print("the active heading is",i)
+            i=i+1
+                
+        #find which column has ageMin - the age in minutes
+        i=0
+        for heading in data[0]:
+            if (heading == "ageMin"):
+                headingAgeMin = i
+                print("the ageMin heading is",i)
+            i=i+1                       
             
+        #find which column has ageHour - the age in hours
+        i=0
+        for heading in data[0]:
+            if (heading == "ageHour"):
+                headingAgeHour = i
+                print("the ageHour heading is",i)
+            i=i+1                       
+            
+        i=0
+        for lineList in data:
+            if(lineList[headingActive] == "yes"):
+                tubeAgeMin = int(lineList[headingAgeMin]) + 1
+                lineList[headingAgeMin] = str(tubeAgeMin)
+                if (tubeAgeMin == 60):
+                    lineList[headingAgeMin] = "0"
+                    lineList[headingAgeHour] = str(int(lineList[headingAgeHour]) + 1)
+                print("updating tube", lineList[headingNumber], "to", lineList[headingAgeMin], "minutes and",lineList[headingAgeHour], "hours")
+                data[headingActive][headingAgeMin] = lineList[headingAgeMin]
+                data[headingActive][headingAgeHour] = lineList[headingAgeHour]
+        
+    
+        with open ("tubeData.csv", "w") as outputFile:
             for lineList in data:
-                if(lineList[headingActive] == "yes"):
-                    tubeAgeMin = int(lineList[headingAgeMin]) + 1
-                    lineList[headingAgeMin] = str(tubeAgeMin)
-                    if (tubeAgeMin == 60):
-                        lineList[headingAgeMin] = "0"
-                        lineList[headingAgeHour] = str(int(lineList[headingAgeHour]) + 1)
-                    print("updating tube", lineList[headingNumber], "to", lineList[headingAgeMin], "minutes and",lineList[headingAgeHour], "hours")
-                    
-        
-            print("Number of data items is", len(data))
-            print(data[3])
-            print(data[3][1])
-        
+                writeLine = lineList[headingNumber] + "," + lineList[headingActive] + "," + lineList[headingAgeMin] + "," + lineList[headingAgeHour] + "\n"
+                print(writeLine)
+                outputFile.write(writeLine)
+        outputFile.close()
         
         #tubeDataFile=open("tubeData.txt", "r")
         #tubeAgeStr = tubeDataFile.read()
@@ -1051,10 +1056,10 @@ class TubeTimer():
 
                 
                 
-        tubeAgeStr = str(tubeAge)
-        tubeDataFile=open("tubeData.txt", "w")
-        tubeDataFile.write(tubeAgeStr)
-        tubeDataFile.close()
+        #tubeAgeStr = str(tubeAge)
+        #tubeDataFile=open("tubeData.txt", "w")
+        #tubeDataFile.write(tubeAgeStr)
+        #tubeDataFile.close()
         return
     
         
