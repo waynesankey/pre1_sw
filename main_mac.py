@@ -967,7 +967,7 @@ class TubeTimer():
     def addSecond(self):
         self.timer = self.timer + 1
         print("time in seconds ", self.timer)
-        if ((self.timer % 60) == 0):
+        if ((self.timer % 10) == 0):
             self.addMinute()
         return
     
@@ -979,15 +979,75 @@ class TubeTimer():
     
     def incTubeData(self):
         tubeAge = 0
-        tubeDataFile=open("tubeData.txt", "r")
-        tubeAgeStr = tubeDataFile.read()
-        tubeDataFile.close()
-        tubeAgeStr.strip
+        data = []
+        i=0
+        with open("tubeData.csv", "r") as file:
+            print("adding a minute to the active tubes")
+            for lineStr in file:
+                lineStr=lineStr.rstrip("\n")
+                lineStr=lineStr.rstrip("\r")
+                data.append(lineStr.split(","))
+                print("list of data on one line read from file",data[i])
+                i+=1
+            file.close()
+            
+            #find which column has the tube number
+            i=0
+            for heading in data[0]:
+                if (heading == "number"):
+                    headingNumber = i
+                    print("the number heading is",i)
+                i=i+1
+            
+            #find which column has the "active" data (tube is in the amp and needs its age data updated in real time)
+            i=0
+            for heading in data[0]:
+                if (heading == "active"):
+                    headingActive = i
+                    print("the active heading is",i)
+                i=i+1
+                
+            #find which column has ageMin - the age in minutes
+            i=0
+            for heading in data[0]:
+                if (heading == "ageMin"):
+                    headingAgeMin = i
+                    print("the ageMin heading is",i)
+                i=i+1                       
+            
+            #find which column has ageHour - the age in hours
+            i=0
+            for heading in data[0]:
+                if (heading == "ageHour"):
+                    headingAgeHour = i
+                    print("the ageHour heading is",i)
+                i=i+1                       
+            
+            
+            for lineList in data:
+                if(lineList[headingActive] == "yes"):
+                    tubeAgeMin = int(lineList[headingAgeMin]) + 1
+                    lineList[headingAgeMin] = str(tubeAgeMin)
+                    if (tubeAgeMin == 60):
+                        lineList[headingAgeMin] = "0"
+                        lineList[headingAgeHour] = str(int(lineList[headingAgeHour]) + 1)
+                    print("updating tube", lineList[headingNumber], "to", lineList[headingAgeMin], "minutes and",lineList[headingAgeHour], "hours")
+                    
+        
+            print("Number of data items is", len(data))
+            print(data[3])
+            print(data[3][1])
+        
+        
+        #tubeDataFile=open("tubeData.txt", "r")
+        #tubeAgeStr = tubeDataFile.read()
+        #tubeDataFile.close()
+        #tubeAgeStr.strip
         #print("type of tubeAgeStr is ", type(tubeAgeStr))
         #print("value of tubeAgeStr = ", tubeAgeStr)
-        tubeAge = int(tubeAgeStr) + 1
+        #tubeAge = int(tubeAgeStr) + 1
         #print("type of tubeAge is ", type(tubeAge))
-        print("after addition, tubeAge is ", tubeAge)
+        #print("after addition, tubeAge is ", tubeAge)
 
                 
                 
