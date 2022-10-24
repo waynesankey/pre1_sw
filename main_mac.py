@@ -129,6 +129,9 @@ OPERATE_OFF = 1
 OPERATE_ST_OFF = 0   # standby
 OPERATE_ST_ON = 1    # operate
 
+PB_PUSHED = 0        # pushbutton depressed
+PB_RELEASED = 1      # pushbutton released
+
 
 SELECT_NONE = 0
 SELECT_STREAMING = 1
@@ -142,6 +145,7 @@ STATE_FILAMENT = 1
 STATE_BPLUS = 2
 STATE_OPERATE = 3
 STATE_STANDBY = 4
+STATE_TUBETIMER = 5
 
 
 FILAMENT_DELAY = 3  # change this to 45 when creating working loads
@@ -180,18 +184,70 @@ led_red = Pin(25, Pin.OUT)
 
 ###################################################################
 # Functions
-def timercallback(t):
+
+# this timer is the 1s timer for the tube lifetime timer
+def timer1s_callback(t):
     tim.addSecond()
     #global timer1s
     #timer1s = timer1s + 1
     #print ("seconds timer is ", timer1s)
     pass
 
+# this timer closes a 10ms window where a new pushbutton change is not recognized - for debouncing 
+def timer10ms_callback(t):
+    pb.allow_change()
+    pass
 
 
 
 ###################################################################
 # Classes
+
+
+class Pushbutton():
+    """A class that provides services associated with the mode change pushbutton to the rest of the program"""
+    def __init__(self):
+        self.current = volpb_in.value()
+        self.last = self.current
+        self.disallow_change()
+        self.pushbutton_active = 0
+        return
+    
+    def disallow_change(self):
+        print("executing disallow_change")
+        self.change_allowed = False
+        tim10ms.init(mode=Timer.ONE_SHOT, period=100, callback=timer10ms_callback)
+        return
+    
+    def allow_change(self):
+        print("Executing allow_change")
+        self.change_allowed = True
+        return
+    
+    
+    #def change(self):
+    #    """testing to see if the pushbutton has changed value and has been debounced to report only valid changes"""
+    #    return pushbutton_change
+    
+
+    def button_pushed(self):
+        self.pushbutton_active = 0
+        self.current = volpb_in.value()
+        if self.current == PB_PUSHED and self.last == PB_RELEASED and self.change_allowed == True:
+            print("The pushbutton was just pushed")
+            self.pushbutton_active = 1
+            self.disallow_change()
+        
+        #debounce the release
+        if self.current == PB_RELEASED and self.last == PB_PUSHED and self.change_allowed == True:
+            print("Button released - debounce")
+            self.disallow_change()
+        
+        self.last = self.current
+        return self.pushbutton_active
+
+
+
 class Vol_encoder():
     def __init__(self):
         self.volume = 0
@@ -654,6 +710,18 @@ class Display():
         i2c.writeto(DISPLAY_ADDR, buf)
         return
 
+    def tubetimer_screen(self):
+        #blank the screen
+        dis.clear_display()
+        
+        #top line
+        buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE1])
+        i2c.writeto(DISPLAY_ADDR, buf)
+        buf = bytearray("     Tube Timer")
+        i2c.writeto(DISPLAY_ADDR, buf)
+        return
+
+
 
 
 class Relay():
@@ -1072,7 +1140,8 @@ spiVol = machine.SPI(0, baudrate=100_000, polarity=1, phase=0, bits=8, firstbit=
 spiCsVol = Pin(21, machine.Pin.OUT)
 spiRel = machine.SPI(1, baudrate=200_000, polarity=0, phase=0, bits=8, firstbit=machine.SPI.MSB, sck=Pin(10), mosi=Pin(11), miso=Pin(12)) #pin 20 not needed but apparently must be delcared
 spiCsRel = Pin(13, machine.Pin.OUT)
-tim1s = Timer(mode=Timer.PERIODIC, period=1000, callback=timercallback)
+tim1s = Timer(mode=Timer.PERIODIC, period=1000, callback=timer1s_callback)
+tim10ms = Timer(mode=Timer.ONE_SHOT, period=10, callback=timer10ms_callback)
 
 
 
@@ -1102,6 +1171,7 @@ else:
     print("FAIL: no I2C devices found!!!")
 
 
+pb = Pushbutton()
 vol = Vol_encoder()
 dis = Display()
 mut = Mute()
@@ -1132,11 +1202,16 @@ bplus_count = BPLUS_DELAY
 
 
 def blink_led():
+    i=0
     while True:
-        led_red.value(1)
-        time.sleep_ms(100)
         led_red.value(0)
-        time.sleep_ms(100)
+        button = volpb_in.value()
+        if not button:
+            led_red.value(1)
+        time.sleep_ms(10)
+        
+        
+        
     
 _thread.start_new_thread(blink_led, ())
 
@@ -1199,6 +1274,7 @@ while True:
             dis.standby_screen()
             state = STATE_STANDBY
         else:
+            pb_pushed = pb.button_pushed()
             mute_change = mut.change()
             volume_change = vol.change()
             select_change = sel.change()
@@ -1206,7 +1282,10 @@ while True:
             if (loop_counter%1000 == 0):
                 temp_change = tmp.change()
             #print ("volume_change is ", volume_change)
-            if(volume_change != 0):
+            if(pb_pushed != 0):
+                dis.tubetimer_screen()
+                state = STATE_TUBETIMER
+            elif(volume_change != 0):
                 vol.update_volume(volume_change)
             elif(select_change != 0):
                 sel.update_select(select_change)
@@ -1225,6 +1304,20 @@ while True:
         if (operate_setting == OPERATE_ST_ON):
             filament_count = FILAMENT_DELAY
             state = STATE_FILAMENT
+    
+    if (state == STATE_TUBETIMER):
+        pb_pushed = pb.button_pushed()
+        if (pb_pushed != 0):
+            
+            dis.clear_display()
+            dis.operate_on()
+            curr_volume = vol.get_current_volume()
+            curr_select = sel.get_current_select()
+            dis.display_select(curr_select)
+            dis.display_volume(curr_volume)
+            tmp.update()
+            mut.mute_immediate()
+            state = STATE_OPERATE            
     
     loop_counter += 1
     #time.sleep_ms(1)
