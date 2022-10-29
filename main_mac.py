@@ -2,6 +2,7 @@ from machine import Pin, I2C, Timer
 import os
 import time
 import _thread
+import uasyncio
 
 ###################################################################
 # SW Version
@@ -193,8 +194,8 @@ def timer1s_callback(t):
     #print ("seconds timer is ", timer1s)
     pass
 
-# this timer closes a 10ms window where a new pushbutton change is not recognized - for debouncing 
-def timer10ms_callback(t):
+# this timer closes a 100ms window where a new pushbutton change is not recognized - for debouncing 
+def timer100ms_callback(t):
     pb.allow_change()
     pass
 
@@ -214,12 +215,14 @@ class Pushbutton():
         return
     
     def disallow_change(self):
+        """this function should be called after the pushbutton value has been detected to be changed, the debounce gate will be closed, timer is started, and the timer callback will then reopen the gate"""
         print("executing disallow_change")
         self.change_allowed = False
-        tim10ms.init(mode=Timer.ONE_SHOT, period=100, callback=timer10ms_callback)
+        tim100ms.init(mode=Timer.ONE_SHOT, period=100, callback=timer100ms_callback)
         return
     
     def allow_change(self):
+        """should normally only be called by the timer callback - reopens the debounce gate"""
         print("Executing allow_change")
         self.change_allowed = True
         return
@@ -231,6 +234,7 @@ class Pushbutton():
     
 
     def button_pushed(self):
+        """returns 1 if the button was pushed - have to debounce the push and release, which is done by change_allowed which is the debounce gate signal"""
         self.pushbutton_active = 0
         self.current = volpb_in.value()
         if self.current == PB_PUSHED and self.last == PB_RELEASED and self.change_allowed == True:
@@ -1141,7 +1145,7 @@ spiCsVol = Pin(21, machine.Pin.OUT)
 spiRel = machine.SPI(1, baudrate=200_000, polarity=0, phase=0, bits=8, firstbit=machine.SPI.MSB, sck=Pin(10), mosi=Pin(11), miso=Pin(12)) #pin 20 not needed but apparently must be delcared
 spiCsRel = Pin(13, machine.Pin.OUT)
 tim1s = Timer(mode=Timer.PERIODIC, period=1000, callback=timer1s_callback)
-tim10ms = Timer(mode=Timer.ONE_SHOT, period=10, callback=timer10ms_callback)
+tim100ms = Timer(mode=Timer.ONE_SHOT, period=100, callback=timer100ms_callback)
 
 
 
@@ -1192,28 +1196,33 @@ bplus_count = BPLUS_DELAY
 
 
 
+###################################################################
+# Testing asyncio for blinking LED
 
+#async def blink_led():
+#    while True:
+#        led_red.value(0)
+#        await uasyncio.sleep(0.25)
+#        led_red.value(1)
+#        await uasyncio.sleep(0.25)
 
+#_thread.start_new_thread(uasyncio.run(blink_led()))
 
 
 
 ###################################################################
 # Start core 1 (not sure core number actually but we'll call this one #1)
 
-
-def blink_led():
-    i=0
-    while True:
-        led_red.value(0)
-        button = volpb_in.value()
-        if not button:
-            led_red.value(1)
-        time.sleep_ms(10)
-        
-        
-        
+#def blink_led():
+#    i=0
+#    while True:
+#        led_red.value(0)
+#        button = volpb_in.value()
+#        if not button:
+#            led_red.value(1)
+#        time.sleep_ms(10)  
     
-_thread.start_new_thread(blink_led, ())
+#_thread.start_new_thread(blink_led, ())
 
 ###################################################################
 # Main program loop - core 0 (note sure which core but we'll call this one #0)
