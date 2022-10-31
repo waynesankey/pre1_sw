@@ -5,6 +5,17 @@ import uasyncio
 import queue
 
 
+
+# have volume encoder class split out from volume class - need to do same thing for the sel encoder
+# have message system set up with uasyncio library for pattern:
+# detect input change (async polled) then send message to the active part of the program
+# remove the 1s timer because there's an asyncio 1s beat ???
+# remove the 10ms timer because its not needed to debounce the nutton pushes any more
+# continue with the State class and methods to run the amp
+# add more functions such as balance
+
+
+
 ###################################################################
 # SW Version
 SW_VERSION = "1.1.6"
@@ -33,6 +44,15 @@ DISPLAY_LINE4 = 0x54
 VOLUME_POSITION = 7
 MUTE_POSITION = 16
 STANDBY_POSITION = 0x47
+
+
+# State constants
+STATE_STARTUP = 0
+STATE_FILAMENT = 1
+STATE_BPLUS = 2
+STATE_OPERATE = 3
+STATE_STANDBY = 4
+STATE_TUBETIMER = 5
 
 
 
@@ -142,12 +162,7 @@ SELECT_PHONO = 3
 SELECT_AUX1 = 4
 SELECT_AUX2 = 5
 
-STATE_STARTUP = 0
-STATE_FILAMENT = 1
-STATE_BPLUS = 2
-STATE_OPERATE = 3
-STATE_STANDBY = 4
-STATE_TUBETIMER = 5
+
 
 # Messages to pass on the Queue
 NULL_MESSAGE = 0
@@ -171,7 +186,7 @@ UPDATE_TEMP = 11
 
 SECOND_BEAT = 12
 
-
+SPLASH_DELAY = 3
 FILAMENT_DELAY = 3  # change this to 45 when creating working loads
 BPLUS_DELAY = 3
 
@@ -272,11 +287,10 @@ class Pushbutton():
 
 class Vol_encoder():
     def __init__(self):
-        self.volume = 0
         self.current = vol1_in.value() << 1
         self.current = self.current + vol0_in.value()
         self.last = self.current
-        print("initializing vol object, current encoder position is %x" % self.current)
+        print("initializing vol_enc object, current encoder position is %x" % self.current)
         return
         
     def change(self):
@@ -304,6 +318,14 @@ class Vol_encoder():
             7: -1,
             14: -1}.get(encoder_values,0)
 
+
+    
+    
+class Volume():
+    def __init__(self):
+        self.volume = 0
+        return
+    
     def update_volume(self, volume_change):
         self.volume = self.volume + volume_change
         if (self.volume < 0):
@@ -1133,27 +1155,79 @@ class TubeTimer():
                 print(writeLine)
                 outputFile.write(writeLine)
         outputFile.close()
-        
-        #tubeDataFile=open("tubeData.txt", "r")
-        #tubeAgeStr = tubeDataFile.read()
-        #tubeDataFile.close()
-        #tubeAgeStr.strip
-        #print("type of tubeAgeStr is ", type(tubeAgeStr))
-        #print("value of tubeAgeStr = ", tubeAgeStr)
-        #tubeAge = int(tubeAgeStr) + 1
-        #print("type of tubeAge is ", type(tubeAge))
-        #print("after addition, tubeAge is ", tubeAge)
-
-                
-                
-        #tubeAgeStr = str(tubeAge)
-        #tubeDataFile=open("tubeData.txt", "w")
-        #tubeDataFile.write(tubeAgeStr)
-        #tubeDataFile.close()
         return
     
+
+
+class State():
     
+    def __init__(self):
+        self.state = STATE_STARTUP
+        self.splash_count = SPLASH_DELAY
+        self.filament_count = FILAMENT_DELAY
+        self.bplus_count = BPLUS_DELAY
+        return
     
+    def dispatch(self, message):
+        
+        if self.state == STATE_STARTUP:
+            if message == SECOND_BEAT:
+                self.st_splash()
+ 
+        
+        elif self.state == STATE_FILAMENT:
+            if message == SECOND_BEAT:
+                self.st_filament() 
+                    
+        elif self.state == STATE_BPLUS:
+            if message == SECOND_BEAT:
+                self.st_bplus()
+
+        return
+        
+        
+    def st_splash(self):
+        self.splash_count = self.splash_count - 1
+        if self.splash_count == 0:
+            self.splash_count = SPLASH_DELAY
+            rel.filament_on()
+            self.filament_count = FILAMENT_DELAY
+            dis.filament_screen(self.filament_count)
+            self.state = STATE_FILAMENT
+        return
+        
+        
+    def st_filament(self):
+        self.filament_count -= 1
+        dis.filament_screen(self.filament_count)
+        if self.filament_count == 0:
+            self.bplus_count = BPLUS_DELAY
+            dis.bplus_screen(self.bplus_count)
+            rel.bplus_on()
+            self.state = STATE_BPLUS
+        return
+    
+    def st_bplus(self):
+        self.bplus_count -= 1
+        dis.bplus_screen(self.bplus_count)
+        if self.bplus_count == 0:
+            if (OPERATE_ST_ON == op.current_operate()):
+                dis.clear_display()
+                dis.operate_on()
+                dis.display_select(sel.get_current_select())
+                dis.display_volume(vol.get_current_volume())
+                tmp.update()
+                mut.mute_immediate()
+                self.state = STATE_OPERATE
+            else:
+                dis.clear_display()
+                vol.update_volume(0)   #update the volume with no change
+                sel.update_select(0)   #update select with no change
+                mut.force_mute()
+                dis.standby_screen()
+                self.state = STATE_STANDBY
+        return
+        
         
         
 ###################################################################
@@ -1196,7 +1270,8 @@ else:
 
 
 pb = Pushbutton()
-vol = Vol_encoder()
+vol_enc = Vol_encoder()
+vol = Volume()
 dis = Display()
 mut = Mute()
 sel = Sel_encoder()
@@ -1206,6 +1281,7 @@ mus = Muses72320()
 tmp = MPC9808()
 tim = TubeTimer()
 q   = queue.Queue(32)
+st  = State()
 
 
 # set initial state
@@ -1213,7 +1289,7 @@ state = STATE_STARTUP
 loop_counter = 0
 filament_count = FILAMENT_DELAY
 bplus_count = BPLUS_DELAY
-splash_count = 5
+
 
 
 
@@ -1270,20 +1346,17 @@ async def seconds_beat():
     return
 
 
-
 # Coroutine detect button press and put a value on the queue
 async def l_pb_input():
 
     btn_current = volpb_in.value()
     btn_last = btn_current
-    i=0
     while True:
-        i += 1
         btn_current = volpb_in.value()
         if (btn_current == PB_PUSHED) and (btn_last == PB_RELEASED):
-            await q.put(i)
+            await q.put(L_PB_PUSHED)
         btn_last = btn_current
-        await uasyncio.sleep(0.04)
+        await uasyncio.sleep(0.05)
     return
         
 
@@ -1291,14 +1364,24 @@ async def r_pb_input():
 
     btn_current = selpb_in.value()
     btn_last = btn_current
-    i=0
     while True:
-        i += 1
         btn_current = selpb_in.value()
         if (btn_current == PB_PUSHED) and (btn_last == PB_RELEASED):
-            await q.put(i)
+            await q.put(R_PB_PUSHED)
         btn_last = btn_current
-        await uasyncio.sleep(0.1)
+        await uasyncio.sleep(0.05)
+    return
+
+
+async def vol_rotated():
+    
+    while True:
+        knob_current = vol_enc.change()
+        if knob_current == 1:
+            await q.put(VOL_KNOB_CW)
+        elif knob_current == -1:
+            await q.put(VOL_KNOB_CCW)
+        await uasyncio.sleep(0.05)
     return
 
 
@@ -1317,6 +1400,9 @@ async def amp_body():
     uasyncio.create_task(l_pb_input())
     uasyncio.create_task(r_pb_input())
     
+    #create coroutines to detect knobs turned
+    uasyncio.create_task(vol_rotated())
+    
     #create coroutine to update temp data
     uasyncio.create_task(temperature_update())
     
@@ -1330,20 +1416,24 @@ async def amp_body():
         if not q.empty():
             message = await q.get()
             print("message from queue: ", message)
-            if state == STATE_STARTUP:
-                if message == SECOND_BEAT:
-                    splash_count = splash_count - 1
-                    if splash_count == 0:
-                        rel.filament_on()
-                        state = STATE_FILAMENT
             
-            elif state == STATE_FILAMENT:
-                if message == SECOND_BEAT:
-                    dis.filament_screen(filament_count)
-                    filament_count -= 1
-                    if (filament_count == 0):
-                        rel.bplus_on()
-                        state = STATE_BPLUS
+            st.dispatch(message)
+            
+            
+#             if state == STATE_STARTUP:
+#                 if message == SECOND_BEAT:
+#                     splash_count = splash_count - 1
+#                     if splash_count == 0:
+#                         rel.filament_on()
+#                         state = STATE_FILAMENT
+#             
+#             elif state == STATE_FILAMENT:
+#                 if message == SECOND_BEAT:
+#                     dis.filament_screen(filament_count)
+#                     filament_count -= 1
+#                     if (filament_count == 0):
+#                         rel.bplus_on()
+#                         state = STATE_BPLUS
             
 #            if message == UPDATE_TEMP:
 #                tmp.update()
@@ -1420,7 +1510,7 @@ uasyncio.run(amp_body())
 #             else:
 #                 qsize = q.qsize()
 #                 mute_change = mut.change()
-#                 volume_change = vol.change()
+#                 volume_change = vol_enc.change()
 #                 select_change = sel.change()
 #                 temp_change = 0
 #                 if (loop_counter%1000 == 0):
