@@ -53,6 +53,7 @@ STATE_BPLUS = 2
 STATE_OPERATE = 3
 STATE_STANDBY = 4
 STATE_TUBETIMER = 5
+STATE_BALANCE = 6
 
 
 
@@ -1169,35 +1170,74 @@ class State():
         return
     
     def dispatch(self, message):
-        
+        """This function dispatches a task to perform based upon what the message was - time based event or input event."""
         if self.state == STATE_STARTUP:
             if message == SECOND_BEAT:
                 self.st_splash()
  
         
         elif self.state == STATE_FILAMENT:
-            if message == SECOND_BEAT:
+            if message == SW_OPERATE_OFF:
+                self.goto_standby()
+            elif message == SECOND_BEAT:
                 self.st_filament() 
                     
         elif self.state == STATE_BPLUS:
-            if message == SECOND_BEAT:
+            if message == SW_OPERATE_OFF:
+                self.goto_standby()
+            elif message == SECOND_BEAT:
                 self.st_bplus()
+                
+        elif self.state == STATE_OPERATE:
+            if message == SW_OPERATE_OFF:
+                self.goto_standby()
+            elif message == VOL_KNOB_CW:
+                vol.update_volume(1)
+            elif message == VOL_KNOB_CCW:
+                vol.update_volume(-1)
+ #           elif message == L_PB_PUSHED:
+ #               self.operate_to_bal()
+                
+        elif self.state == STATE_STANDBY:
+            if message == SW_OPERATE_ON:
+                self.goto_filament()
 
         return
         
         
+    def goto_standby(self):
+        mut.force_mute()
+        rel.bplus_off()
+        rel.filament_off()
+        dis.standby_screen()
+        self.state = STATE_STANDBY
+        return
+    
+    
+    def goto_filament(self):
+        self.filament_count = FILAMENT_DELAY
+        dis.filament_screen(filament_count)
+        self.state = STATE_FILAMENT
+        return
+        
+        
     def st_splash(self):
+        """Display the splash screen."""
         self.splash_count = self.splash_count - 1
         if self.splash_count == 0:
             self.splash_count = SPLASH_DELAY
-            rel.filament_on()
-            self.filament_count = FILAMENT_DELAY
-            dis.filament_screen(self.filament_count)
-            self.state = STATE_FILAMENT
+            if (OPERATE_ST_ON == op.current_operate()):
+                rel.filament_on()
+                self.filament_count = FILAMENT_DELAY
+                dis.filament_screen(self.filament_count)
+                self.state = STATE_FILAMENT
+            else:
+                self.goto_standby()
         return
         
         
     def st_filament(self):
+        """Operate the filament preheat routine."""
         self.filament_count -= 1
         dis.filament_screen(self.filament_count)
         if self.filament_count == 0:
@@ -1207,7 +1247,9 @@ class State():
             self.state = STATE_BPLUS
         return
     
+    
     def st_bplus(self):
+        """Operate the Bplus supply stabilization routine."""
         self.bplus_count -= 1
         dis.bplus_screen(self.bplus_count)
         if self.bplus_count == 0:
@@ -1228,6 +1270,11 @@ class State():
                 self.state = STATE_STANDBY
         return
         
+        
+#    def operate_to_bal(self):
+#        """Transition from STATE_OPERATE to STATE_BALANCE, where the balance can be adjusted."""       
+#        self.state = STATE_BALANCE
+#        return
         
         
 ###################################################################
