@@ -226,18 +226,18 @@ led_red = Pin(25, Pin.OUT)
 # Functions
 
 # this timer is the 1s timer for the tube lifetime timer
-def timer1s_callback(t):
-    q.put(UPDATE_TEMP)
-    tim.addSecond()
+#def timer1s_callback(t):
+    #q.put(UPDATE_TEMP)
+    #tim.addSecond()
     #global timer1s
     #timer1s = timer1s + 1
     #print ("seconds timer is ", timer1s)
-    pass
+    #pass
 
 # this timer closes a 100ms window where a new pushbutton change is not recognized - for debouncing 
-def timer100ms_callback(t):
-    pb.allow_change()
-    pass
+# def timer100ms_callback(t):
+#     pb.allow_change()
+#     pass
 
 
 
@@ -245,44 +245,44 @@ def timer100ms_callback(t):
 # Classes
 
 
-class Pushbutton():
-    """A class that provides services associated with the mode change pushbutton to the rest of the program"""
-    def __init__(self):
-        self.current = volpb_in.value()
-        self.last = self.current
-        self.disallow_change()
-        self.pushbutton_active = 0
-        return
-    
-    def disallow_change(self):
-        """this function should be called after the pushbutton value has been detected to be changed, the debounce gate will be closed, timer is started, and the timer callback will then reopen the gate"""
-        print("executing disallow_change")
-        self.change_allowed = False
-        tim100ms.init(mode=Timer.ONE_SHOT, period=100, callback=timer100ms_callback)
-        return
-    
-    def allow_change(self):
-        """should normally only be called by the timer callback - reopens the debounce gate"""
-        print("Executing allow_change")
-        self.change_allowed = True
-        return
-
-    def button_pushed(self):
-        """returns 1 if the button was pushed - have to debounce the push and release, which is done by change_allowed which is the debounce gate signal"""
-        self.pushbutton_active = 0
-        self.current = volpb_in.value()
-        if self.current == PB_PUSHED and self.last == PB_RELEASED and self.change_allowed == True:
-            print("The pushbutton was just pushed")
-            self.pushbutton_active = 1
-            self.disallow_change()
-        
-        #debounce the release
-        if self.current == PB_RELEASED and self.last == PB_PUSHED and self.change_allowed == True:
-            print("Button released - debounce")
-            self.disallow_change()
-        
-        self.last = self.current
-        return self.pushbutton_active
+# class Pushbutton():
+#     """A class that provides services associated with the mode change pushbutton to the rest of the program"""
+#     def __init__(self):
+#         self.current = volpb_in.value()
+#         self.last = self.current
+#         self.disallow_change()
+#         self.pushbutton_active = 0
+#         return
+#     
+#     def disallow_change(self):
+#         """this function should be called after the pushbutton value has been detected to be changed, the debounce gate will be closed, timer is started, and the timer callback will then reopen the gate"""
+#         print("executing disallow_change")
+#         self.change_allowed = False
+#         tim100ms.init(mode=Timer.ONE_SHOT, period=100, callback=timer100ms_callback)
+#         return
+#     
+#     def allow_change(self):
+#         """should normally only be called by the timer callback - reopens the debounce gate"""
+#         print("Executing allow_change")
+#         self.change_allowed = True
+#         return
+# 
+#     def button_pushed(self):
+#         """returns 1 if the button was pushed - have to debounce the push and release, which is done by change_allowed which is the debounce gate signal"""
+#         self.pushbutton_active = 0
+#         self.current = volpb_in.value()
+#         if self.current == PB_PUSHED and self.last == PB_RELEASED and self.change_allowed == True:
+#             print("The pushbutton was just pushed")
+#             self.pushbutton_active = 1
+#             self.disallow_change()
+#         
+#         #debounce the release
+#         if self.current == PB_RELEASED and self.last == PB_PUSHED and self.change_allowed == True:
+#             print("Button released - debounce")
+#             self.disallow_change()
+#         
+#         self.last = self.current
+#         return self.pushbutton_active
 
 
 
@@ -1171,10 +1171,22 @@ class State():
     
     def dispatch(self, message):
         """This function dispatches a task to perform based upon what the message was - time based event or input event."""
-        if self.state == STATE_STARTUP:
-            if message == SECOND_BEAT:
-                self.st_splash()
- 
+        
+        if self.state == STATE_OPERATE:
+            if message == SW_OPERATE_OFF:
+                self.goto_standby()
+            elif message == VOL_KNOB_CW:
+                vol.update_volume(1)
+            elif message == VOL_KNOB_CCW:
+                vol.update_volume(-1)
+            elif message == UPDATE_TEMP:
+                tmp.update()
+ #           elif message == L_PB_PUSHED:
+ #               self.operate_to_bal()
+        
+        elif self.state == STATE_STANDBY:
+            if message == SW_OPERATE_ON:
+                self.goto_filament()
         
         elif self.state == STATE_FILAMENT:
             if message == SW_OPERATE_OFF:
@@ -1188,19 +1200,11 @@ class State():
             elif message == SECOND_BEAT:
                 self.st_bplus()
                 
-        elif self.state == STATE_OPERATE:
-            if message == SW_OPERATE_OFF:
-                self.goto_standby()
-            elif message == VOL_KNOB_CW:
-                vol.update_volume(1)
-            elif message == VOL_KNOB_CCW:
-                vol.update_volume(-1)
- #           elif message == L_PB_PUSHED:
- #               self.operate_to_bal()
+        elif self.state == STATE_STARTUP:
+            if message == SECOND_BEAT:
+                self.st_splash()
                 
-        elif self.state == STATE_STANDBY:
-            if message == SW_OPERATE_ON:
-                self.goto_filament()
+
 
         return
         
@@ -1285,8 +1289,8 @@ spiVol = machine.SPI(0, baudrate=100_000, polarity=1, phase=0, bits=8, firstbit=
 spiCsVol = Pin(21, machine.Pin.OUT)
 spiRel = machine.SPI(1, baudrate=200_000, polarity=0, phase=0, bits=8, firstbit=machine.SPI.MSB, sck=Pin(10), mosi=Pin(11), miso=Pin(12)) #pin 20 not needed but apparently must be delcared
 spiCsRel = Pin(13, machine.Pin.OUT)
-tim1s = Timer(mode=Timer.PERIODIC, period=1000, callback=timer1s_callback)
-tim100ms = Timer(mode=Timer.ONE_SHOT, period=100, callback=timer100ms_callback)
+# tim1s = Timer(mode=Timer.PERIODIC, period=1000, callback=timer1s_callback)
+# tim100ms = Timer(mode=Timer.ONE_SHOT, period=100, callback=timer100ms_callback)
 
 
 
@@ -1316,7 +1320,7 @@ else:
     print("FAIL: no I2C devices found!!!")
 
 
-pb = Pushbutton()
+#pb = Pushbutton()
 vol_enc = Vol_encoder()
 vol = Volume()
 dis = Display()
@@ -1381,12 +1385,14 @@ bplus_count = BPLUS_DELAY
 
 
 async def temperature_update():
+    """Update the temperature display during the states where it's on the display. Update period is determined here."""
     while True:
         await q.put(UPDATE_TEMP)
-        await uasyncio.sleep_ms(1000)
+        await uasyncio.sleep(10)
     return
 
 async def seconds_beat():
+    """A message every second for any job that needs to be done on a one seconf time base."""
     while True:
         await q.put(SECOND_BEAT)
         await uasyncio.sleep_ms(1000)
@@ -1395,7 +1401,7 @@ async def seconds_beat():
 
 # Coroutine detect button press and put a value on the queue
 async def l_pb_input():
-
+    """Detects that the left pushbutton switch has been depressed.  Debouncing is done here."""
     btn_current = volpb_in.value()
     btn_last = btn_current
     while True:
@@ -1408,7 +1414,7 @@ async def l_pb_input():
         
 
 async def r_pb_input():
-
+    """Detects that the right pushbutton switch has been depressed.  Debouncing is done here."""
     btn_current = selpb_in.value()
     btn_last = btn_current
     while True:
@@ -1416,19 +1422,19 @@ async def r_pb_input():
         if (btn_current == PB_PUSHED) and (btn_last == PB_RELEASED):
             await q.put(R_PB_PUSHED)
         btn_last = btn_current
-        await uasyncio.sleep(0.05)
+        await uasyncio.sleep(0.08)
     return
 
 
 async def vol_rotated():
-    
+    """Detects that the VOLUME (left) quadrature encoder has been rotated, there is a different message for CW or CCW rotation by 1 unit.  Debouncing is done here."""
     while True:
         knob_current = vol_enc.change()
         if knob_current == 1:
             await q.put(VOL_KNOB_CW)
         elif knob_current == -1:
             await q.put(VOL_KNOB_CCW)
-        await uasyncio.sleep(0.05)
+        await uasyncio.sleep(0.02)
     return
 
 
