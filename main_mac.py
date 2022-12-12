@@ -436,10 +436,10 @@ class Mute():
             mus.vol_down_soft(volume, volume)
             rel.mute_on()
         else:
-            dis.mute_off()
             rel.mute_off()
             volume = vol.get_current_volume()
             mus.vol_up_soft(volume, volume)
+            dis.mute_off()
         return
     
     # use this to detect current switch position and execute mute functions if the mute state does
@@ -485,6 +485,25 @@ class Mute():
         return
         
         
+    def mute_on_soft(self):
+        """Respond to message by turning on soft MUTE."""
+        dis.mute_on()
+        volume = vol.get_current_volume()
+        mus.vol_down_soft(volume, volume)
+        rel.mute_on()
+        self.mute_state = MUTE_ST_ON
+        return
+    
+    def mute_off_soft(self):
+        """Respond to message by turning off soft MUTE."""
+        rel.mute_off()
+        volume = vol.get_current_volume()
+        mus.vol_up_soft(volume, volume)
+        dis.mute_off()
+        self.mute_state = MUTE_ST_OFF
+        return
+        
+            
         
 class Operate():
     def __init__(self):
@@ -1181,6 +1200,10 @@ class State():
                 vol.update_volume(-1)
             elif message == UPDATE_TEMP:
                 tmp.update()
+            elif message == SW_MUTE_ON:
+                mut.mute_on_soft()
+            elif message == SW_MUTE_OFF:
+                mut.mute_off_soft()
  #           elif message == L_PB_PUSHED:
  #               self.operate_to_bal()
         
@@ -1221,6 +1244,7 @@ class State():
     def goto_filament(self):
         self.filament_count = FILAMENT_DELAY
         dis.filament_screen(filament_count)
+        rel.filament_on()
         self.state = STATE_FILAMENT
         return
         
@@ -1399,7 +1423,6 @@ async def seconds_beat():
     return
 
 
-# Coroutine detect button press and put a value on the queue
 async def l_pb_input():
     """Detects that the left pushbutton switch has been depressed.  Debouncing is done here."""
     btn_current = volpb_in.value()
@@ -1438,6 +1461,40 @@ async def vol_rotated():
     return
 
 
+async def operate_input():
+    """Detects that the OPERATE switch has changed state, sends the appropriate message to the queue in response."""
+    operate_current = operate_in.value()
+    operate_last = operate_current
+    while True:
+        operate_current = operate_in.value()
+        if (operate_current == OPERATE_ON) and (operate_last == OPERATE_OFF):
+            # switch was just turned on
+            await q.put(SW_OPERATE_ON)
+        elif (operate_current == OPERATE_OFF) and (operate_last == OPERATE_ON):
+            # switch was just turned off
+            await q.put(SW_OPERATE_OFF)
+        operate_last = operate_current
+        await uasyncio.sleep(0.10)
+    return
+
+
+async def mute_input():
+    """Detects that the MUTE switch has changed state, sends the appropriate message to the queue in response."""
+    mute_current = mute_in.value()
+    mute_last = mute_current
+    while True:
+        mute_current = mute_in.value()
+        if (mute_current == MUTE_ON) and (mute_last == MUTE_OFF):
+            # switch was just turned on
+            await q.put(SW_MUTE_ON)
+        elif (mute_current == MUTE_OFF) and (mute_last == MUTE_ON):
+            # switch was just turned off
+            await q.put(SW_MUTE_OFF)
+        mute_last = mute_current
+        await uasyncio.sleep(0.10)
+    return
+
+
 
 ###################################################################
 # Main program loop - core 0 (note sure which core but we'll call this one #0)
@@ -1455,6 +1512,10 @@ async def amp_body():
     
     #create coroutines to detect knobs turned
     uasyncio.create_task(vol_rotated())
+    
+    #create coroutines to detect toggle switch changes
+    uasyncio.create_task(operate_input())
+    uasyncio.create_task(mute_input())
     
     #create coroutine to update temp data
     uasyncio.create_task(temperature_update())
