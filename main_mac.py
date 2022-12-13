@@ -1,4 +1,4 @@
-from machine import Pin, I2C, Timer
+from machine import Pin, I2C
 import os
 import time
 import uasyncio
@@ -379,19 +379,20 @@ class Sel_encoder():
     def update_select(self, select_change):
         print("Entering update_select,current select is %i and change is %i" % (self.select, select_change))
         self.select = self.select + select_change
-        if (self.select < SELECT_STREAMING):
-            self.select = SELECT_STREAMING
+        if (self.select < 4*SELECT_STREAMING):
+            self.select = 4*SELECT_STREAMING
             return
-        if (self.select > SELECT_AUX2):
-            self.select = SELECT_AUX2
+        if (self.select > 4*SELECT_AUX2):
+            self.select = 4*SELECT_AUX2
             return
         print("In update_select, new select is", self.select)
-        volume = vol.get_current_volume()
-        mus.vol_down_soft(volume, volume)
-        dis.display_select(self.select)
-        rel.select(self.select)
-        mus.vol_up_soft(volume, volume)
-        return    
+        if self.select%4 == 0:
+            volume = vol.get_current_volume()
+            mus.vol_down_soft(volume, volume)
+            dis.display_select(self.select/4)
+            rel.select(self.select/4)
+            mus.vol_up_soft(volume, volume)
+            return    
     
 
     def select_immediate(self):
@@ -959,7 +960,7 @@ class Muses72320():
         data_left = MUSES_ATTEN_0 + MAX_VOLUME - left
         if (left == 0):
             data_left = 0xff  #mute    
-        print("Volume chip data is ", data_left)
+        #print("Volume chip data is ", data_left)
         
         #write right chip
         if (right > MAX_VOLUME):
@@ -990,7 +991,7 @@ class Muses72320():
         return
 
     def vol_down_soft(self, left, right):
-        print("In vol_down_soft, left is ", left)
+        #print("In vol_down_soft, left is ", left)
         largest = left
         if (right > largest):
             largest = right 
@@ -1002,11 +1003,11 @@ class Muses72320():
             print("largest is, writing to chips ", largest, left, right)
             self.write(left, right)
             largest -= 1
-            time.sleep_ms(8)
+            time.sleep_ms(4)
         return
         
     def vol_up_soft(self, left, right):
-        print("In vol_up_soft, left is ", left)
+        #print("In vol_up_soft, left is ", left)
         largest = left
         if (right > largest):
             largest = right
@@ -1017,10 +1018,10 @@ class Muses72320():
                 lvol += 1
             if (rvol < right):
                 rvol += 1
-            print("largest is, writing to chips ", largest, lvol, rvol)
+            #print("largest is, writing to chips ", largest, lvol, rvol)
             self.write(lvol, rvol)
             largest -= 1
-            time.sleep_ms(8)
+            time.sleep_ms(4)
         return        
 
     def vol_mute_immediate(self):
@@ -1198,6 +1199,10 @@ class State():
                 vol.update_volume(1)
             elif message == VOL_KNOB_CCW:
                 vol.update_volume(-1)
+            elif message == SEL_KNOB_CW:
+                sel.update_select(1)
+            elif message == SEL_KNOB_CCW:
+                sel.update_select(-1)
             elif message == UPDATE_TEMP:
                 tmp.update()
             elif message == SW_MUTE_ON:
@@ -1460,6 +1465,17 @@ async def vol_rotated():
         await uasyncio.sleep(0.02)
     return
 
+async def sel_rotated():
+    """Detects that the SELECT (right) quadrature encoder has been rotated, there is a different message for CW or CCW rotation by 1 unit.  Debouncing is done here."""
+    while True:
+        knob_current = sel.change()
+        if knob_current == 1:
+            await q.put(SEL_KNOB_CW)
+        elif knob_current == -1:
+            await q.put(SEL_KNOB_CCW)
+        await uasyncio.sleep(0.02)
+    return
+
 
 async def operate_input():
     """Detects that the OPERATE switch has changed state, sends the appropriate message to the queue in response."""
@@ -1512,6 +1528,7 @@ async def amp_body():
     
     #create coroutines to detect knobs turned
     uasyncio.create_task(vol_rotated())
+    uasyncio.create_task(sel_rotated())
     
     #create coroutines to detect toggle switch changes
     uasyncio.create_task(operate_input())
