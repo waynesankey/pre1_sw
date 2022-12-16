@@ -139,14 +139,15 @@ timer1s = 0
 ###################################################################
 # Product Constants
 MAX_VOLUME = 128
+MAX_BALANCE = 10     # the chips are 0.5dB steps, so this is a +/- 10dB side-to-side difference 
 
-MUTE_ON = 0     # grounded when switch in up position, two lugs go towards bottom of chassis
+MUTE_ON = 0          # grounded when switch in up position, two lugs go towards bottom of chassis
 MUTE_OFF = 1
 
 MUTE_ST_OFF = 0
 MUTE_ST_ON = 1
 
-OPERATE_ON = 0  # grounded when switch in up position, two lugs go towards bottom of chassis
+OPERATE_ON = 0       # grounded when switch in up position, two lugs go towards bottom of chassis
 OPERATE_OFF = 1
 
 OPERATE_ST_OFF = 0   # standby
@@ -323,23 +324,75 @@ class Vol_encoder():
     
     
 class Volume():
+    """Class to handle the volume and balance methods and members.  Balance is handled as a left/right delta to the volume."""
     def __init__(self):
         self.volume = 0
+        self.balance = 0
+        self.volume_left = 0
+        self.volume_right = 0
+        self.balance_left = 0
+        self.balance_right = 0
         return
     
     def update_volume(self, volume_change):
+        """The volume number is changed by this method which will then take into account the balance and write the correct new volume L/R to the display and volume chips.
+        This method is only called in the OPERATE state.
+        """
         self.volume = self.volume + volume_change
+
+        # limit volume to the allowed bounds
         if (self.volume < 0):
             self.volume = 0
         if (self.volume > MAX_VOLUME):
             self.volume = MAX_VOLUME
+
+        # now split the volume into left and right
+        self.volume_left = volume - balance;
+        self.volume_right = volume + balance;
+
+        # limit the port-balance L/R volumes
+        if (self.volume_left < 0):
+            self.volume_left = 0
+        if (self.volume_right < 0):
+            self.volume_right = 0
+
+        if (self.volume_left > MAX_VOLUME):
+            self.volume_left = MAX_VOLUME
+        if (self.volume_rigth > MAX_VOLUME):
+            self.volume_right = MAX_VOLUME
+
+        # now write L/R values to the display and volume chips
         print("In update_volume, new volume is", self.volume)
-        dis.display_volume(self.volume)
-        mus.write(self.volume, self.volume)
+        dis.display_volume(self.volume_left, self.volume_right)
+        mus.write(self.volume_left, self.volume_right)
+        return
+
+    def update_balance(self, balance_change):
+        """This method is only called in the BALANCE state."""
+        # update the balance
+        self.balance = self.balance + balance_change
+        
+        # limit balance value
+        if (self.balance < 0-MAX_BALANCE):
+            self.balance = 0-MAX_BALANCE
+        if (self.balance > MAX_BALANCE):
+            self.balance = MAX_BALANCE
+        
+        # split the balance between left and right and calculate the L/R volumes
+        self.balance_left = 0 - self.balance
+        self.balance_right = self.balance
+        self.volume_left = self.volume + self.balance_left
+        self.volume_right = self.volume + self.balance_right
+        
+        # now write L/R values to the display and volume chips
+        dis.display_balance(self.balance_left, self.balance_right)
+        mus.write(self.volume_left, self.volume_right)
         return
     
     def get_current_volume(self):
         return self.volume
+    
+    
     
 
 class Sel_encoder():
@@ -578,12 +631,7 @@ class Display():
         return
  
     
-    def display_volume(self, volume):
-        
-        # The input volume value spans 0 to 128 in half dB steps, it's too much range so divide by 4 for the display values.
-        # Using the shift operator means there's no type conversion, it remains an integer and no messing around with the
-        # display type.
-        volume = volume>>2
+    def display_volume(self, volume_left, volume_right):
         
         buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE1])
         i2c.writeto(DISPLAY_ADDR, buf)
@@ -592,15 +640,62 @@ class Display():
         
         buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE1])
         i2c.writeto(DISPLAY_ADDR, buf)
-        buf = bytearray(str(volume))
+        buf = bytearray(str(volume_left))
+        i2c.writeto(DISPLAY_ADDR, buf)
+
+        buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE1+17])
+        i2c.writeto(DISPLAY_ADDR, buf)
+        buf = bytearray(str(volume_right))
+        i2c.writeto(DISPLAY_ADDR, buf)
+        return
+
+
+    def display_balance(self, balance_left, balance_right):
+        
+        buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE1])
+        i2c.writeto(DISPLAY_ADDR, buf)
+        buf = bytearray("       Balance      ")
+        i2c.writeto(DISPLAY_ADDR, buf)
+        
+        buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE1])
+        i2c.writeto(DISPLAY_ADDR, buf)
+        buf = bytearray(str(balance_left))
         i2c.writeto(DISPLAY_ADDR, buf)
 
         buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE1+18])
         i2c.writeto(DISPLAY_ADDR, buf)
-        buf = bytearray(str(volume))
+        buf = bytearray(str(balance_right))
         i2c.writeto(DISPLAY_ADDR, buf)
         return
-    
+
+
+
+
+#     def display_volume(self, volume):
+#         
+#         # The input volume value spans 0 to 128 in half dB steps, it's too much range so divide by 4 for the display values.
+#         # Using the shift operator means there's no type conversion, it remains an integer and no messing around with the
+#         # display type.
+#         volume = volume>>2
+#         
+#         buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE1])
+#         i2c.writeto(DISPLAY_ADDR, buf)
+#         buf = bytearray("       Volume       ")
+#         i2c.writeto(DISPLAY_ADDR, buf)
+#         
+#         buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE1])
+#         i2c.writeto(DISPLAY_ADDR, buf)
+#         buf = bytearray(str(volume))
+#         i2c.writeto(DISPLAY_ADDR, buf)
+# 
+#         buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE1+18])
+#         i2c.writeto(DISPLAY_ADDR, buf)
+#         buf = bytearray(str(volume))
+#         i2c.writeto(DISPLAY_ADDR, buf)
+#         return
+
+
+
     def mute_on(self):
         buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE4 + MUTE_POSITION])
         i2c.writeto(DISPLAY_ADDR, buf)
@@ -954,21 +1049,19 @@ class Muses72320():
         return
 
     def write(self, left, right):
-        #write left chip
-        if (left > MAX_VOLUME):
-            left = MAX_VOLUME
+        """Method to write the volume data to the left and right volume chips"""
+        #calculate left chip data to write, value has been checked for bounds before call to this method
         data_left = MUSES_ATTEN_0 + MAX_VOLUME - left
         if (left == 0):
             data_left = 0xff  #mute    
         #print("Volume chip data is ", data_left)
         
-        #write right chip
-        if (right > MAX_VOLUME):
-            right = MAX_VOLUME
+        #calculate right chip data to write, value has been checked for bounds before call to this method
         data_right = MUSES_ATTEN_0 + MAX_VOLUME - right
         if (right == 0):
             data_right = 0xff  #mute
         
+        #now do the writes to the chips- the chip selects are done in SW here, the SPI device does the HW signal wiggling.
         buf = bytearray([data_left, LEFT_LSB_0])
         spiCsVol.value(0)
         spiVol.write(buf)
