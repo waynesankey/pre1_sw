@@ -358,11 +358,11 @@ class Volume():
 
         if (self.volume_left > MAX_VOLUME):
             self.volume_left = MAX_VOLUME
-        if (self.volume_rigth > MAX_VOLUME):
+        if (self.volume_right > MAX_VOLUME):
             self.volume_right = MAX_VOLUME
 
         # now write L/R values to the display and volume chips
-        print("In update_volume, new volume is", self.volume)
+        print("In update_volume, left volume is", self.volume_left, " and right volume is ", self.volume_right)
         dis.display_volume(self.volume_left, self.volume_right)
         mus.write(self.volume_left, self.volume_right)
         return
@@ -389,8 +389,17 @@ class Volume():
         mus.write(self.volume_left, self.volume_right)
         return
     
-    def get_current_volume(self):
-        return self.volume
+    def get_current_volume_left(self):
+        return self.volume_left
+    
+    def get_current_volume_right(self):
+        return self.volume_right
+    
+    def get_current_balance_left(self):
+        return self.balance_left
+    
+    def get_current_balance_right(self);
+        return self.balance_right
     
     
     
@@ -440,8 +449,9 @@ class Sel_encoder():
             return
         print("In update_select, new select is", self.select)
         if self.select%4 == 0:
-            volume = vol.get_current_volume()
-            mus.vol_down_soft(volume, volume)
+            volume_left = vol.get_current_volume_left()
+            volume_right = vol.get_current_volume_right()
+            mus.vol_down_soft(volume_left, volume_right)
             dis.display_select(self.select/4)
             rel.select(self.select/4)
             mus.vol_up_soft(volume, volume)
@@ -486,13 +496,15 @@ class Mute():
         print("update_mute: self.mute_state is ", self.mute_state)
         if(self.mute_state == MUTE_ST_ON):
             dis.mute_on()
-            volume = vol.get_current_volume()
-            mus.vol_down_soft(volume, volume)
+            volume_left = vol.get_current_volume_left()
+            volume_right = vol.get_current_volume_right()
+            mus.vol_down_soft(volume_left, volume_right)
             rel.mute_on()
         else:
             rel.mute_off()
-            volume = vol.get_current_volume()
-            mus.vol_up_soft(volume, volume)
+            volume_left = vol.get_current_volume_left()
+            volume_right = vol.get_current_volume_right()
+            mus.vol_up_soft(volume_left, volume_right)
             dis.mute_off()
         return
     
@@ -534,16 +546,18 @@ class Mute():
             dis.mute_off()
             rel.mute_off()          
             sel.select_immediate()   #update select with no change
-            volume = vol.get_current_volume()
-            mus.vol_up_soft(volume, volume) 
+            volume_left = vol.get_current_volume_left()
+            volume_right = vol.get_current_volume_right()
+            mus.vol_up_soft(volume_left, volume_right) 
         return
         
         
     def mute_on_soft(self):
         """Respond to message by turning on soft MUTE."""
         dis.mute_on()
-        volume = vol.get_current_volume()
-        mus.vol_down_soft(volume, volume)
+        volume_left = vol.get_current_volume_left()
+        volume_right = vol.get_current_volume_right()
+        mus.vol_down_soft(volume_left, volume_right)
         rel.mute_on()
         self.mute_state = MUTE_ST_ON
         return
@@ -551,8 +565,9 @@ class Mute():
     def mute_off_soft(self):
         """Respond to message by turning off soft MUTE."""
         rel.mute_off()
-        volume = vol.get_current_volume()
-        mus.vol_up_soft(volume, volume)
+        volume_left = vol.get_current_volume_left()
+        volume_right = vol.get_current_volume_right()
+        mus.vol_up_soft(volume_left, volume_right)        
         dis.mute_off()
         self.mute_state = MUTE_ST_OFF
         return
@@ -1302,8 +1317,29 @@ class State():
                 mut.mute_on_soft()
             elif message == SW_MUTE_OFF:
                 mut.mute_off_soft()
- #           elif message == L_PB_PUSHED:
- #               self.operate_to_bal()
+            elif message == L_PB_PUSHED:
+                self.operate_to_bal()
+        
+        #basically the same as operate but adjusts balance with left knob and use right PB to go back to STATE_OPERATE
+        elif self.state == STATE_BALANCE:
+            if message == SW_OPERATE_OFF:
+                self.goto_standby()            
+            elif message == VOL_KNOB_CW:
+                vol.update_balance(1)
+            elif message == VOL_KNOB_CCW:
+                vol.update_balance(-1)
+            elif message == SEL_KNOB_CW:
+                sel.update_select(1)
+            elif message == SEL_KNOB_CCW:
+                sel.update_select(-1)
+            elif message == UPDATE_TEMP:
+                tmp.update()
+            elif message == SW_MUTE_ON:
+                mut.mute_on_soft()
+            elif message == SW_MUTE_OFF:
+                mut.mute_off_soft()
+            elif message == R_PB_PUSHED:
+                self.bal_to_operate()
         
         elif self.state == STATE_STANDBY:
             if message == SW_OPERATE_ON:
@@ -1383,7 +1419,9 @@ class State():
                 dis.clear_display()
                 dis.operate_on()
                 dis.display_select(sel.get_current_select())
-                dis.display_volume(vol.get_current_volume())
+                volume_left = vol.get_current_volume_left()
+                volume_right = vol.get_current_volume_right()
+                dis.display_volume(volume_left, volume_right)
                 tmp.update()
                 mut.mute_immediate()
                 self.state = STATE_OPERATE
@@ -1397,10 +1435,22 @@ class State():
         return
         
         
-#    def operate_to_bal(self):
-#        """Transition from STATE_OPERATE to STATE_BALANCE, where the balance can be adjusted."""       
-#        self.state = STATE_BALANCE
-#        return
+    def operate_to_bal(self):
+        """Transition from STATE_OPERATE to STATE_BALANCE, where the balance can be adjusted."""
+        balance_left = vol.get_current_balance_left()
+        balance_right = vol.get_current_balance_right()
+        dis.display_balance(balance_left, balance_right)
+        self.state = STATE_BALANCE
+        return
+    
+    def bal_to_operate(self):
+        """Transition from STATE_BALANCE to STATE_OPERATE, which is the main state."""
+        volume_left = vol.get_current_volume_left()
+        volume_right = vol.get_current_volume_right()
+        dis.display_volume(volume_left, volume_right)
+        self.state = STATE_OPERATE
+        return
+        
         
         
 ###################################################################
