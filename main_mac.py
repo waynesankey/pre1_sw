@@ -684,33 +684,6 @@ class Display():
         return
 
 
-
-
-#     def display_volume(self, volume):
-#         
-#         # The input volume value spans 0 to 128 in half dB steps, it's too much range so divide by 4 for the display values.
-#         # Using the shift operator means there's no type conversion, it remains an integer and no messing around with the
-#         # display type.
-#         volume = volume>>2
-#         
-#         buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE1])
-#         i2c.writeto(DISPLAY_ADDR, buf)
-#         buf = bytearray("       Volume       ")
-#         i2c.writeto(DISPLAY_ADDR, buf)
-#         
-#         buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE1])
-#         i2c.writeto(DISPLAY_ADDR, buf)
-#         buf = bytearray(str(volume))
-#         i2c.writeto(DISPLAY_ADDR, buf)
-# 
-#         buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE1+18])
-#         i2c.writeto(DISPLAY_ADDR, buf)
-#         buf = bytearray(str(volume))
-#         i2c.writeto(DISPLAY_ADDR, buf)
-#         return
-
-
-
     def mute_on(self):
         buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE4 + MUTE_POSITION])
         i2c.writeto(DISPLAY_ADDR, buf)
@@ -1690,34 +1663,8 @@ async def amp_body():
         if not q.empty():
             message = await q.get()
             print("message from queue: ", message)
-            
             st.dispatch(message)
-            
-            
-#             if state == STATE_STARTUP:
-#                 if message == SECOND_BEAT:
-#                     splash_count = splash_count - 1
-#                     if splash_count == 0:
-#                         rel.filament_on()
-#                         state = STATE_FILAMENT
-#             
-#             elif state == STATE_FILAMENT:
-#                 if message == SECOND_BEAT:
-#                     dis.filament_screen(filament_count)
-#                     filament_count -= 1
-#                     if (filament_count == 0):
-#                         rel.bplus_on()
-#                         state = STATE_BPLUS
-            
-#            if message == UPDATE_TEMP:
-#                tmp.update()
-                
-#            elif message == SECOND_BEAT:
-#                pass
-                
-                
         await uasyncio.sleep_ms(10)
-    
     return
 
 uasyncio.run(amp_body())
