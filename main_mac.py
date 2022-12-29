@@ -138,7 +138,7 @@ timer1s = 0
 
 ###################################################################
 # Product Constants
-MAX_VOLUME = 128
+MAX_VOLUME = 64
 MAX_BALANCE = 10     # the chips are 0.5dB steps, so this is a +/- 10dB side-to-side difference 
 
 MUTE_ON = 0          # grounded when switch in up position, two lugs go towards bottom of chassis
@@ -246,47 +246,6 @@ led_red = Pin(25, Pin.OUT)
 # Classes
 
 
-# class Pushbutton():
-#     """A class that provides services associated with the mode change pushbutton to the rest of the program"""
-#     def __init__(self):
-#         self.current = volpb_in.value()
-#         self.last = self.current
-#         self.disallow_change()
-#         self.pushbutton_active = 0
-#         return
-#     
-#     def disallow_change(self):
-#         """this function should be called after the pushbutton value has been detected to be changed, the debounce gate will be closed, timer is started, and the timer callback will then reopen the gate"""
-#         print("executing disallow_change")
-#         self.change_allowed = False
-#         tim100ms.init(mode=Timer.ONE_SHOT, period=100, callback=timer100ms_callback)
-#         return
-#     
-#     def allow_change(self):
-#         """should normally only be called by the timer callback - reopens the debounce gate"""
-#         print("Executing allow_change")
-#         self.change_allowed = True
-#         return
-# 
-#     def button_pushed(self):
-#         """returns 1 if the button was pushed - have to debounce the push and release, which is done by change_allowed which is the debounce gate signal"""
-#         self.pushbutton_active = 0
-#         self.current = volpb_in.value()
-#         if self.current == PB_PUSHED and self.last == PB_RELEASED and self.change_allowed == True:
-#             print("The pushbutton was just pushed")
-#             self.pushbutton_active = 1
-#             self.disallow_change()
-#         
-#         #debounce the release
-#         if self.current == PB_RELEASED and self.last == PB_PUSHED and self.change_allowed == True:
-#             print("Button released - debounce")
-#             self.disallow_change()
-#         
-#         self.last = self.current
-#         return self.pushbutton_active
-
-
-
 class Vol_encoder():
     def __init__(self):
         self.current = vol1_in.value() << 1
@@ -301,26 +260,28 @@ class Vol_encoder():
         self.current = vol1_in.value() << 1
         self.current = self.current + vol0_in.value()
         if (self.current != self.last):
-            #print("vol_enc_current is", self.current)
-            vol_dir = self.last << 2
-            vol_dir += self.current
-            volume_change = self.encoder_change(vol_dir)
+            print("volume encoder changed, new value is", self.current, "old value was", self.last)
+            if self.last == 3 and self.current == 1:
+                volume_change = 1
+            elif self.last == 3 and self.current == 2:
+                volume_change = -1
             self.last = self.current
-            #print("volume_change is ", volume_change)
+            print("volume_change is ", volume_change)
         return volume_change
+    
+    def reset_position(self):
+        """Used to reset the encoder position so no changes are pending.  Used in long delay debounce loop so when the debounce returns, the current encoder position is zeroed out."""
+        self.current = vol1_in.value() << 1
+        self.current = self.current + vol0_in.value()
+        self.last = self.current
+        return
         
-    def encoder_change(self, encoder_values):
-        return{
-            4: 1,
-            2: 1,
-            11: 1,
-            13: 1,
-            8: -1,
-            1: -1,
-            7: -1,
-            14: -1}.get(encoder_values,0)
-
-
+    def print_current_position(self):
+        position = 0
+        position = vol1_in.value() << 1
+        position = position + vol0_in.value()
+        print("vol encoder position is ", position)
+        return
     
     
 class Volume():
@@ -338,13 +299,15 @@ class Volume():
         """The volume number is changed by this method which will then take into account the balance and write the correct new volume L/R to the display and volume chips.
         This method is only called in the OPERATE state.
         """
+        
+        temp_volume = self.volume
         self.volume = self.volume + volume_change
 
-        # limit volume to the allowed bounds
-        if (self.volume < 0):
-            self.volume = 0
-        if (self.volume > MAX_VOLUME):
-            self.volume = MAX_VOLUME
+#         # limit volume to the allowed bounds
+#         if (self.volume < 0):
+#             self.volume = 0
+#         if (self.volume > MAX_VOLUME):
+#             self.volume = MAX_VOLUME
 
         # now split the volume into left and right
         self.volume_left = self.volume - self.balance;
@@ -352,14 +315,18 @@ class Volume():
 
         # limit the port-balance L/R volumes
         if (self.volume_left < 0):
-            self.volume_left = 0
+            self.volume = temp_volume
+            return
         if (self.volume_right < 0):
-            self.volume_right = 0
+            self.volume = temp_volume
+            return
 
         if (self.volume_left > MAX_VOLUME):
-            self.volume_left = MAX_VOLUME
+            self.volume = temp_volume
+            return
         if (self.volume_right > MAX_VOLUME):
-            self.volume_right = MAX_VOLUME
+            self.volume = temp_volume
+            return
 
         # now write L/R values to the display and volume chips
         #print("In update_volume, left volume is", self.volume_left, " and right volume is ", self.volume_right)
@@ -419,24 +386,14 @@ class Sel_encoder():
         self.current = sel1_in.value() << 1
         self.current = self.current + sel0_in.value()
         if (self.current != self.last):
-            print("sel_enc_current is", self.current)
-            sel_dir = self.last << 2
-            sel_dir += self.current
-            select_change = self.encoder_change(sel_dir)
+            print("selector encoder changed, last value was", self.last, "and new value is", self.current)
+            if self.last == 3 and self.current == 1:
+                select_change = 1
+            elif self.last == 3 and self.current == 2:
+                select_change = -1
             self.last = self.current
             print("select_change is ", select_change)
         return select_change
-        
-    def encoder_change(self, encoder_values):
-        return{
-            4: 1,
-            2: 1,
-            11: 1,
-            13: 1,
-            8: -1,
-            1: -1,
-            7: -1,
-            14: -1}.get(encoder_values,0)
 
     def reset_position(self):
         """Used to reset the encoder position so no changes are pending.  Used in long delay debounce loop so when the debounce returns, the current encoder position is zeroed out."""
@@ -474,6 +431,13 @@ class Sel_encoder():
 
     def get_current_select(self):
         return self.select
+    
+    def print_current_position(self):
+        position = 0
+        position = sel1_in.value() << 1
+        position = position + sel0_in.value()
+        print("sel encoder position is ", position)
+        return
 
 
 
@@ -1046,13 +1010,13 @@ class Muses72320():
     def write(self, left, right):
         """Method to write the volume data to the left and right volume chips"""
         #calculate left chip data to write, value has been checked for bounds before call to this method
-        data_left = MUSES_ATTEN_0 + MAX_VOLUME - left
+        data_left = MUSES_ATTEN_0 + 2*(MAX_VOLUME - left)
         if (left == 0):
             data_left = 0xff  #mute    
-        #print("Volume chip data is ", data_left)
+        print("Volume chip data left channel is ", data_left)
         
         #calculate right chip data to write, value has been checked for bounds before call to this method
-        data_right = MUSES_ATTEN_0 + MAX_VOLUME - right
+        data_right = MUSES_ATTEN_0 + 2*(MAX_VOLUME - right)
         if (right == 0):
             data_right = 0xff  #mute
         
@@ -1293,6 +1257,8 @@ class State():
                 sel.update_select(-1)
             elif message == UPDATE_TEMP:
                 tmp.update()
+                #vol_enc.print_current_position()
+                #sel.print_current_position()
             elif message == SW_MUTE_ON:
                 mut.mute_on_soft()
             elif message == SW_MUTE_OFF:
@@ -1583,9 +1549,13 @@ async def vol_rotated():
         knob_current = vol_enc.change()
         if knob_current == 1:
             await q.put(VOL_KNOB_CW)
+            #await uasyncio.sleep(0.02)
+            #vol_enc.reset_position()
         elif knob_current == -1:
             await q.put(VOL_KNOB_CCW)
-        await uasyncio.sleep(0.02)
+            #await uasyncio.sleep(0.02)
+            #vol_enc.reset_position()
+        await uasyncio.sleep(0.01)
     return
 
 async def sel_rotated():
@@ -1594,14 +1564,13 @@ async def sel_rotated():
         knob_current = sel.change()
         if knob_current == 1:
             await q.put(SEL_KNOB_CW)
-            await uasyncio.sleep(0.2)
-            sel.reset_position()
+            #await uasyncio.sleep(0.2)
+            #sel.reset_position()
         elif knob_current == -1:
             await q.put(SEL_KNOB_CCW)
-            await uasyncio.sleep(0.2)
-            sel.reset_position()
-        else:
-            await uasyncio.sleep(0.02)
+            #await uasyncio.sleep(0.2)
+            #sel.reset_position()
+        await uasyncio.sleep(0.01)
     return
 
 
