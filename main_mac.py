@@ -438,24 +438,31 @@ class Sel_encoder():
             7: -1,
             14: -1}.get(encoder_values,0)
 
+    def reset_position(self):
+        """Used to reset the encoder position so no changes are pending.  Used in long delay debounce loop so when the debounce returns, the current encoder position is zeroed out."""
+        self.current = sel1_in.value() << 1
+        self.current = self.current + sel0_in.value()
+        self.last = self.current
+        return
+
     def update_select(self, select_change):
         print("Entering update_select,current select is %i and change is %i" % (self.select, select_change))
         self.select = self.select + select_change
-        if (self.select < 4*SELECT_STREAMING):
-            self.select = 4*SELECT_STREAMING
+        if (self.select < SELECT_STREAMING):
+            self.select = SELECT_STREAMING
             return
-        if (self.select > 4*SELECT_AUX2):
-            self.select = 4*SELECT_AUX2
+        if (self.select > SELECT_AUX2):
+            self.select = SELECT_AUX2
             return
         print("In update_select, new select is", self.select)
-        if self.select%4 == 0:
-            volume_left = vol.get_current_volume_left()
-            volume_right = vol.get_current_volume_right()
-            mus.vol_down_soft(volume_left, volume_right)
-            dis.display_select(self.select/4)
-            rel.select(self.select/4)
-            mus.vol_up_soft(volume_left, volume_right)
-            return    
+
+        volume_left = vol.get_current_volume_left()
+        volume_right = vol.get_current_volume_right()
+        mus.vol_down_soft(volume_left, volume_right)
+        dis.display_select(self.select)
+        rel.select(self.select)
+        mus.vol_up_soft(volume_left, volume_right)
+        return    
     
 
     def select_immediate(self):
@@ -895,7 +902,7 @@ class Relay():
         return
     
     def write(self):
-        print("Entering write", self.relay_array)
+        #print("Entering write", self.relay_array)
         relays0 = 0x00
         relays1 = 0x00
         for i in range (0,8):
@@ -1081,7 +1088,7 @@ class Muses72320():
                 left -= 1
             if (right > 0):
                 right -= 1
-            print("largest is, writing to chips ", largest, left, right)
+            #print("largest is, writing to chips ", largest, left, right)
             self.write(left, right)
             largest -= 1
             time.sleep_ms(4)
@@ -1587,9 +1594,14 @@ async def sel_rotated():
         knob_current = sel.change()
         if knob_current == 1:
             await q.put(SEL_KNOB_CW)
+            await uasyncio.sleep(0.2)
+            sel.reset_position()
         elif knob_current == -1:
             await q.put(SEL_KNOB_CCW)
-        await uasyncio.sleep(0.02)
+            await uasyncio.sleep(0.2)
+            sel.reset_position()
+        else:
+            await uasyncio.sleep(0.02)
     return
 
 
