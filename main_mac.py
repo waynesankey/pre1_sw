@@ -292,7 +292,7 @@ class Vol_encoder():
         self.current = vol1_in.value() << 1
         self.current = self.current + vol0_in.value()
         self.last = self.current
-        print("initializing vol_enc object, current encoder position is %x" % self.current)
+        #print("initializing vol_enc object, current encoder position is %x" % self.current)
         return
         
     def change(self):
@@ -301,12 +301,12 @@ class Vol_encoder():
         self.current = vol1_in.value() << 1
         self.current = self.current + vol0_in.value()
         if (self.current != self.last):
-            print("vol_enc_current is", self.current)
+            #print("vol_enc_current is", self.current)
             vol_dir = self.last << 2
             vol_dir += self.current
             volume_change = self.encoder_change(vol_dir)
             self.last = self.current
-            print("volume_change is ", volume_change)
+            #print("volume_change is ", volume_change)
         return volume_change
         
     def encoder_change(self, encoder_values):
@@ -362,7 +362,7 @@ class Volume():
             self.volume_right = MAX_VOLUME
 
         # now write L/R values to the display and volume chips
-        print("In update_volume, left volume is", self.volume_left, " and right volume is ", self.volume_right)
+        #print("In update_volume, left volume is", self.volume_left, " and right volume is ", self.volume_right)
         dis.display_volume(self.volume_left, self.volume_right)
         mus.write(self.volume_left, self.volume_right)
         return
@@ -1662,7 +1662,7 @@ async def amp_body():
     while True:
         if not q.empty():
             message = await q.get()
-            print("message from queue: ", message)
+            #print("message from queue: ", message)
             st.dispatch(message)
         await uasyncio.sleep_ms(10)
     return
