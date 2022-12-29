@@ -347,8 +347,8 @@ class Volume():
             self.volume = MAX_VOLUME
 
         # now split the volume into left and right
-        self.volume_left = volume - balance;
-        self.volume_right = volume + balance;
+        self.volume_left = self.volume - self.balance;
+        self.volume_right = self.volume + self.balance;
 
         # limit the port-balance L/R volumes
         if (self.volume_left < 0):
@@ -398,7 +398,7 @@ class Volume():
     def get_current_balance_left(self):
         return self.balance_left
     
-    def get_current_balance_right(self);
+    def get_current_balance_right(self):
         return self.balance_right
     
     
@@ -454,7 +454,7 @@ class Sel_encoder():
             mus.vol_down_soft(volume_left, volume_right)
             dis.display_select(self.select/4)
             rel.select(self.select/4)
-            mus.vol_up_soft(volume, volume)
+            mus.vol_up_soft(volume_left, volume_right)
             return    
     
 
@@ -677,7 +677,7 @@ class Display():
         buf = bytearray(str(balance_left))
         i2c.writeto(DISPLAY_ADDR, buf)
 
-        buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE1+18])
+        buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE1+17])
         i2c.writeto(DISPLAY_ADDR, buf)
         buf = bytearray(str(balance_right))
         i2c.writeto(DISPLAY_ADDR, buf)
