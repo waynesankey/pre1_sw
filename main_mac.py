@@ -139,7 +139,7 @@ timer1s = 0
 ###################################################################
 # Product Constants
 MAX_VOLUME = 64
-MAX_BALANCE = 10     # the chips are 0.5dB steps, so this is a +/- 10dB side-to-side difference 
+MAX_BALANCE = 6     # the volume is in 1 dB steps, so this is a +/- 12dB side-to-side difference 
 
 MUTE_ON = 0          # grounded when switch in up position, two lugs go towards bottom of chassis
 MUTE_OFF = 1
@@ -300,33 +300,28 @@ class Volume():
         This method is only called in the OPERATE state.
         """
         
-        temp_volume = self.volume
         self.volume = self.volume + volume_change
 
-#         # limit volume to the allowed bounds
-#         if (self.volume < 0):
-#             self.volume = 0
-#         if (self.volume > MAX_VOLUME):
-#             self.volume = MAX_VOLUME
+        # limit volume to the allowed bounds and run through routine to clean up any problems (could return from here really but keep going)
+        if (self.volume < 0):
+            self.volume = 0
+        if (self.volume > MAX_VOLUME):
+            self.volume = MAX_VOLUME
 
-        # now split the volume into left and right
+        # now split the volume into left and right by applying balance
         self.volume_left = self.volume - self.balance;
         self.volume_right = self.volume + self.balance;
 
-        # limit the port-balance L/R volumes
+        # limit the post-balance L/R volumes
         if (self.volume_left < 0):
-            self.volume = temp_volume
-            return
+            self.volume_left  = 0
         if (self.volume_right < 0):
-            self.volume = temp_volume
-            return
+            self.volume_right = 0
 
         if (self.volume_left > MAX_VOLUME):
-            self.volume = temp_volume
-            return
+            self.volume_left = MAX_VOLUME
         if (self.volume_right > MAX_VOLUME):
-            self.volume = temp_volume
-            return
+            self.volume_right = MAX_VOLUME
 
         # now write L/R values to the display and volume chips
         #print("In update_volume, left volume is", self.volume_left, " and right volume is ", self.volume_right)
@@ -629,7 +624,7 @@ class Display():
         buf = bytearray(str(volume_left))
         i2c.writeto(DISPLAY_ADDR, buf)
 
-        buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE1+17])
+        buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE1+18])
         i2c.writeto(DISPLAY_ADDR, buf)
         buf = bytearray(str(volume_right))
         i2c.writeto(DISPLAY_ADDR, buf)
@@ -648,7 +643,7 @@ class Display():
         buf = bytearray(str(balance_left))
         i2c.writeto(DISPLAY_ADDR, buf)
 
-        buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE1+17])
+        buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE1+18])
         i2c.writeto(DISPLAY_ADDR, buf)
         buf = bytearray(str(balance_right))
         i2c.writeto(DISPLAY_ADDR, buf)
@@ -687,7 +682,7 @@ class Display():
         if (input == 1):
             buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE2])
             i2c.writeto(DISPLAY_ADDR, buf)
-            buf = bytearray("Transporter         ")
+            buf = bytearray("Network Streamer    ")
             i2c.writeto(DISPLAY_ADDR, buf)
         elif(input == 2):
             buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE2])
@@ -1383,17 +1378,19 @@ class State():
         
     def operate_to_bal(self):
         """Transition from STATE_OPERATE to STATE_BALANCE, where the balance can be adjusted."""
-        balance_left = vol.get_current_balance_left()
-        balance_right = vol.get_current_balance_right()
-        dis.display_balance(balance_left, balance_right)
+        #balance_left = vol.get_current_balance_left()
+        #balance_right = vol.get_current_balance_right()
+        #dis.display_balance(balance_left, balance_right)
+        vol.update_balance(0)
         self.state = STATE_BALANCE
         return
     
     def bal_to_operate(self):
         """Transition from STATE_BALANCE to STATE_OPERATE, which is the main state."""
-        volume_left = vol.get_current_volume_left()
-        volume_right = vol.get_current_volume_right()
-        dis.display_volume(volume_left, volume_right)
+        #volume_left = vol.get_current_volume_left()
+        #volume_right = vol.get_current_volume_right()
+        #dis.display_volume(volume_left, volume_right)
+        vol.update_volume(0)
         self.state = STATE_OPERATE
         return
         
