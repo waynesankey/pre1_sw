@@ -18,8 +18,9 @@ import queue
 
 ###################################################################
 # SW Version
-SW_VERSION = "1.1.7"
+SW_VERSION = "1.2.0"
 
+#minor version 2 adds tube timer
 
 ###################################################################
 # Display Constants
@@ -54,6 +55,7 @@ STATE_OPERATE = 3
 STATE_STANDBY = 4
 STATE_TUBETIMER = 5
 STATE_BALANCE = 6
+STATE_TT_DISPLAY = 7
 
 
 
@@ -818,14 +820,31 @@ class Display():
         i2c.writeto(DISPLAY_ADDR, buf)
         return
 
-    def tubetimer_screen(self):
+    def displayTubeTimer(self, tubeNumber, tubeActive, tubeAgeMin, tubeAgeHour):   # tube number, active, minutes, hours
         #blank the screen
-        dis.clear_display()
+        self.clear_display()
         
         #top line
         buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE1])
         i2c.writeto(DISPLAY_ADDR, buf)
         buf = bytearray("     Tube Timer")
+        i2c.writeto(DISPLAY_ADDR, buf)
+        
+        #third line
+        buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE3])
+        i2c.writeto(DISPLAY_ADDR, buf)
+        buf = bytearray("#  Act   Min     Hr")
+        i2c.writeto(DISPLAY_ADDR, buf)
+        
+        #tubeActiveLower = lower.tubeActive()
+        if tubeActive == "yes":
+            active = "Y"
+        else:
+            active = "N"
+        buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE4])
+        i2c.writeto(DISPLAY_ADDR, buf)
+        
+        buf = bytearray(str(tubeNumber) + "   " + active + "     " + str(tubeAgeMin)+ "  " + str(tubeAgeHour))
         i2c.writeto(DISPLAY_ADDR, buf)
         return
 
@@ -1130,6 +1149,14 @@ class TubeTimer():
     def __init__(self):
         self.timer = 0
         self.minutes = 0
+        self.data = []
+        
+        self.headingNumber = 0
+        self.headingActive = 0
+        self.headingAgeMin = 0
+        self.headingAgeHour = 0
+        
+        self.displayTube = 1
         
         #initialize the tube data - but delete this when doing final builds
         #tubeDataFile=open("tubeData.txt", "r+")
@@ -1138,6 +1165,8 @@ class TubeTimer():
         return
     
     
+    # later can delete this and make a coroutine that does only minute updates and calls addMinute, that will reduce the
+    # second-based processing.  Just using this now so I can see things execute.
     def addSecond(self):
         self.timer = self.timer + 1
         #print("time in seconds ", self.timer)
@@ -1151,73 +1180,106 @@ class TubeTimer():
         self.incTubeData()
         return
     
-    def incTubeData(self):
+    def readTubeData(self):
         tubeAge = 0
-        data = []
         i=0
         with open("tubeData.csv", "r") as file:
-            print("adding a minute to the active tubes")
+            print("reading the tube data from the csv file")
+            self.data.clear()
             for lineStr in file:
                 lineStr=lineStr.rstrip("\n")
                 lineStr=lineStr.rstrip("\r")
-                data.append(lineStr.split(","))
-                print("list of data on one line read from file",data[i])
+                self.data.append(lineStr.split(","))
+                print("list of data on one line read from file",self.data[i])
                 i+=1
                 
         file.close()
             
         #find which column has the tube number
         i=0
-        for heading in data[0]:
+        for heading in self.data[0]:
             if (heading == "number"):
-                headingNumber = i
-                print("the number heading is",i)
+                self.headingNumber = i
+                #print("the number heading is", self.headingNumber)
             i=i+1
             
         #find which column has the "active" data (tube is in the amp and needs its age data updated in real time)
         i=0
-        for heading in data[0]:
+        for heading in self.data[0]:
             if (heading == "active"):
-                headingActive = i
-                print("the active heading is",i)
+                self.headingActive = i
+                #print("the active heading is", self.headingActive)
             i=i+1
                 
         #find which column has ageMin - the age in minutes
         i=0
-        for heading in data[0]:
+        for heading in self.data[0]:
             if (heading == "ageMin"):
-                headingAgeMin = i
-                print("the ageMin heading is",i)
+                self.headingAgeMin = i
+                #print("the ageMin heading is", self.headingAgeMin)
             i=i+1                       
             
         #find which column has ageHour - the age in hours
         i=0
-        for heading in data[0]:
+        for heading in self.data[0]:
             if (heading == "ageHour"):
-                headingAgeHour = i
-                print("the ageHour heading is",i)
+                self.headingAgeHour = i
+                #print("the ageHour heading is", self.headingAgeHour)
             i=i+1                       
-            
-        i=0
-        for lineList in data:
-            if(lineList[headingActive] == "yes"):
-                tubeAgeMin = int(lineList[headingAgeMin]) + 1
-                lineList[headingAgeMin] = str(tubeAgeMin)
-                if (tubeAgeMin == 60):
-                    lineList[headingAgeMin] = "0"
-                    lineList[headingAgeHour] = str(int(lineList[headingAgeHour]) + 1)
-                print("updating tube", lineList[headingNumber], "to", lineList[headingAgeMin], "minutes and",lineList[headingAgeHour], "hours")
-                data[headingActive][headingAgeMin] = lineList[headingAgeMin]
-                data[headingActive][headingAgeHour] = lineList[headingAgeHour]
+        return
         
+        
+    def incTubeData(self):
+        
+        self.readTubeData()
+        for lineList in self.data:
+            if(lineList[self.headingActive] == "yes"):
+                tubeAgeMin = int(lineList[self.headingAgeMin]) + 1
+                lineList[self.headingAgeMin] = str(tubeAgeMin)
+                if (tubeAgeMin == 60):
+                    lineList[self.headingAgeMin] = "0"
+                    lineList[self.headingAgeHour] = str(int(lineList[self.headingAgeHour]) + 1)
+                print("updating tube", lineList[self.headingNumber], "to", lineList[self.headingAgeMin], "minutes and",lineList[self.headingAgeHour], "hours")
+                self.data[self.headingActive][self.headingAgeMin] = lineList[self.headingAgeMin]
+                self.data[self.headingActive][self.headingAgeHour] = lineList[self.headingAgeHour]
+        self.writeTubeData()
+        return
     
+    
+    def writeTubeData(self):
         with open ("tubeData.csv", "w") as outputFile:
-            for lineList in data:
-                writeLine = lineList[headingNumber] + "," + lineList[headingActive] + "," + lineList[headingAgeMin] + "," + lineList[headingAgeHour] + "\n"
-                print(writeLine)
+            for lineList in self.data:
+                writeLine = lineList[self.headingNumber] + "," + lineList[self.headingActive] + "," + lineList[self.headingAgeMin] + "," + lineList[self.headingAgeHour] + "\n"
+                #print(writeLine)
                 outputFile.write(writeLine)
         outputFile.close()
         return
+    
+    
+    def show_tt(self, change):
+        self.readTubeData()
+        self.displayTube = self.displayTube + change
+        
+        print("In show_tt, change is", change)
+        
+        if self.displayTube < 1:
+            self.displayTube = 1
+        if self.displayTube > len(self.data):
+            self.displayTube = len(self.data)
+        
+        print("self.displayTube is", self.displayTube)
+        
+        i=0
+        for lineList in self.data:
+            if (i > 0):
+                tubeNum = int(lineList[self.headingNumber])
+                print ("tubeNum", tubeNum)
+                if (tubeNum == self.displayTube):
+                    print("in here, numbers are ", self.displayTube)
+                    dis.displayTubeTimer(tubeNum, lineList[self.headingActive], lineList[self.headingAgeMin], lineList[self.headingAgeHour])   # tube number, active, minutes, hours
+            i = i+1
+        return
+    
     
 
 
@@ -1244,8 +1306,9 @@ class State():
                 sel.update_select(1)
             elif message == SEL_KNOB_CCW:
                 sel.update_select(-1)
-            elif message == UPDATE_TEMP:
+            elif message == SECOND_BEAT:
                 tmp.update()
+                tim.addSecond()
                 #vol_enc.print_current_position()
                 #sel.print_current_position()
             elif message == SW_MUTE_ON:
@@ -1267,14 +1330,17 @@ class State():
                 sel.update_select(1)
             elif message == SEL_KNOB_CCW:
                 sel.update_select(-1)
-            elif message == UPDATE_TEMP:
+            elif message == SECOND_BEAT:
                 tmp.update()
+                tim.addSecond()
             elif message == SW_MUTE_ON:
                 mut.mute_on_soft()
             elif message == SW_MUTE_OFF:
                 mut.mute_off_soft()
             elif message == R_PB_PUSHED:
                 self.bal_to_operate()
+            elif message == L_PB_PUSHED:
+                self.bal_to_tt_display()
         
         elif self.state == STATE_STANDBY:
             if message == SW_OPERATE_ON:
@@ -1295,6 +1361,14 @@ class State():
         elif self.state == STATE_STARTUP:
             if message == SECOND_BEAT:
                 self.st_splash()
+                
+        elif self.state == STATE_TT_DISPLAY:
+            if message == VOL_KNOB_CW:
+                tim.show_tt(1)
+            elif message == VOL_KNOB_CCW:
+                tim.show_tt(-1)
+            elif message == R_PB_PUSHED:
+                self.tt_dis_to_operate()
                 
 
 
@@ -1382,7 +1456,19 @@ class State():
         self.state = STATE_OPERATE
         return
         
-        
+
+    def bal_to_tt_display(self):
+        tim.show_tt(0)
+        self.state = STATE_TT_DISPLAY
+        return
+    
+    def tt_dis_to_operate(self):
+        vol.update_volume(0)
+        self.state = STATE_OPERATE
+        return
+    
+    
+    
         
 ###################################################################
 # Initialize Devices
@@ -1392,8 +1478,6 @@ spiVol = machine.SPI(0, baudrate=100_000, polarity=1, phase=0, bits=8, firstbit=
 spiCsVol = Pin(21, machine.Pin.OUT)
 spiRel = machine.SPI(1, baudrate=200_000, polarity=0, phase=0, bits=8, firstbit=machine.SPI.MSB, sck=Pin(10), mosi=Pin(11), miso=Pin(12)) #pin 20 not needed but apparently must be delcared
 spiCsRel = Pin(13, machine.Pin.OUT)
-# tim1s = Timer(mode=Timer.PERIODIC, period=1000, callback=timer1s_callback)
-# tim100ms = Timer(mode=Timer.ONE_SHOT, period=100, callback=timer100ms_callback)
 
 
 
@@ -1444,55 +1528,6 @@ loop_counter = 0
 filament_count = FILAMENT_DELAY
 bplus_count = BPLUS_DELAY
 
-
-
-
-
-
-
-
-
-
-###################################################################
-# Testing asyncio for blinking LED
-
-# async def blink_led():
-#    while True:
-#        led_red.value(0)
-#        await uasyncio.sleep(0.25)
-#        led_red.value(1)
-#        await uasyncio.sleep(0.25)
-
-
-
-
-
-###################################################################
-# Start core 1 (not sure core number actually but we'll call this one #1)
-
-# def blink_led():
-#     i=0
-#     while True:
-#         led_red.value(0)
-#         button = volpb_in.value()
-#         if not button:
-#             led_red.value(1)
-#             
-#         pb_pushed = pb.button_pushed()
-#         if (pb_pushed != 0):
-#             q.put(L_PB_PUSHED)
-#         time.sleep_ms(10)
-#     return
-#     
-# _thread.start_new_thread(blink_led, ())
-
-
-async def temperature_update():
-    """Update the temperature display during the states where it's on the display. Update period is determined here."""
-    while True:
-        await q.put(UPDATE_TEMP)
-        await uasyncio.sleep(10)
-    return
 
 async def seconds_beat():
     """A message every second for any job that needs to be done on a one seconf time base."""
@@ -1615,9 +1650,6 @@ async def amp_body():
     #create coroutines to detect toggle switch changes
     uasyncio.create_task(operate_input())
     uasyncio.create_task(mute_input())
-    
-    #create coroutine to update temp data
-    uasyncio.create_task(temperature_update())
     
     #create coroutine with 1 second beat
     uasyncio.create_task(seconds_beat())
