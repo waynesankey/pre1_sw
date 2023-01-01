@@ -18,7 +18,7 @@ import queue
 
 ###################################################################
 # SW Version
-SW_VERSION = "1.2.0"
+SW_VERSION = "1.2.1"
 
 #minor version 2 adds tube timer
 
@@ -1169,7 +1169,7 @@ class TubeTimer():
     def addSecond(self):
         self.timer = self.timer + 1
         #print("time in seconds ", self.timer)
-        if ((self.timer % 10) == 0):
+        if ((self.timer % 60) == 0):
             self.addMinute()
         return
     
@@ -1235,7 +1235,7 @@ class TubeTimer():
             if(lineList[self.headingActive] == "yes"):
                 tubeAgeMin = int(lineList[self.headingAgeMin]) + 1
                 lineList[self.headingAgeMin] = str(tubeAgeMin)
-                if (tubeAgeMin == 60):
+                if (tubeAgeMin >= 60):
                     lineList[self.headingAgeMin] = "0"
                     lineList[self.headingAgeHour] = str(int(lineList[self.headingAgeHour]) + 1)
                 print("updating tube", lineList[self.headingNumber], "to", lineList[self.headingAgeMin], "minutes and",lineList[self.headingAgeHour], "hours")
@@ -1295,9 +1295,7 @@ class State():
         """This function dispatches a task to perform based upon what the message was - time based event or input event."""
         
         if self.state == STATE_OPERATE:
-            if message == SW_OPERATE_OFF:
-                self.goto_standby()
-            elif message == VOL_KNOB_CW:
+            if message == VOL_KNOB_CW:
                 vol.update_volume(1)
             elif message == VOL_KNOB_CCW:
                 vol.update_volume(-1)
@@ -1316,12 +1314,12 @@ class State():
                 mut.mute_off_soft()
             elif message == L_PB_PUSHED:
                 self.operate_to_bal()
+            elif message == SW_OPERATE_OFF:
+                self.goto_standby()
         
         #basically the same as operate but adjusts balance with left knob and use right PB to go back to STATE_OPERATE
-        elif self.state == STATE_BALANCE:
-            if message == SW_OPERATE_OFF:
-                self.goto_standby()            
-            elif message == VOL_KNOB_CW:
+        elif self.state == STATE_BALANCE:            
+            if message == VOL_KNOB_CW:
                 vol.update_balance(1)
             elif message == VOL_KNOB_CCW:
                 vol.update_balance(-1)
@@ -1340,6 +1338,8 @@ class State():
                 self.bal_to_operate()
             elif message == L_PB_PUSHED:
                 self.bal_to_tt_display()
+            elif message == SW_OPERATE_OFF:
+                self.goto_standby()
         
         elif self.state == STATE_STANDBY:
             if message == SW_OPERATE_ON:
@@ -1372,6 +1372,8 @@ class State():
                 mut.mute_on_soft_nodisplay()
             elif message == SW_MUTE_OFF:
                 mut.mute_off_soft()
+            elif message == SW_OPERATE_OFF:
+                self.goto_standby()
                 
 
 
