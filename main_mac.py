@@ -609,21 +609,10 @@ class Display():
  
     
     def display_volume(self, volume_left, volume_right):
-        
         buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE1])
         i2c.writeto(DISPLAY_ADDR, buf)
-        buf = bytearray("       Volume       ")
-        i2c.writeto(DISPLAY_ADDR, buf)
-        
-        buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE1])
-        i2c.writeto(DISPLAY_ADDR, buf)
-        buf = bytearray(str(volume_left))
-        i2c.writeto(DISPLAY_ADDR, buf)
-
-        buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE1+18])
-        i2c.writeto(DISPLAY_ADDR, buf)
-        buf = bytearray(str(volume_right))
-        i2c.writeto(DISPLAY_ADDR, buf)
+        buf = bytearray('{:<2}'.format(volume_left) + "     Volume     " + '{:>2}'.format(volume_right))
+        i2c.writeto(DISPLAY_ADDR, buf)  
         return
 
 
@@ -631,17 +620,7 @@ class Display():
         
         buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE1])
         i2c.writeto(DISPLAY_ADDR, buf)
-        buf = bytearray("       Balance      ")
-        i2c.writeto(DISPLAY_ADDR, buf)
-        
-        buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE1])
-        i2c.writeto(DISPLAY_ADDR, buf)
-        buf = bytearray(str(balance_left))
-        i2c.writeto(DISPLAY_ADDR, buf)
-
-        buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE1+18])
-        i2c.writeto(DISPLAY_ADDR, buf)
-        buf = bytearray(str(balance_right))
+        buf = bytearray('{:<2}'.format(balance_left) + "     Balance    " + '{:>2}'.format(balance_right))
         i2c.writeto(DISPLAY_ADDR, buf)
         return
 
@@ -763,7 +742,7 @@ class Display():
         #fourth line
         buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE4])
         i2c.writeto(DISPLAY_ADDR, buf)
-        buf = bytearray("         " + str(count))
+        buf = bytearray("    " + '{:>2}'.format(count) + " seconds")
         i2c.writeto(DISPLAY_ADDR, buf)
         return
 
@@ -793,7 +772,7 @@ class Display():
         #fourth line
         buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE4])
         i2c.writeto(DISPLAY_ADDR, buf)
-        buf = bytearray("         " + str(count))
+        buf = bytearray("    " + '{:>2}'.format(count) + " seconds")
         i2c.writeto(DISPLAY_ADDR, buf)
         return
 
@@ -833,7 +812,7 @@ class Display():
         #third line
         buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE3])
         i2c.writeto(DISPLAY_ADDR, buf)
-        buf = bytearray("#  Act   Min     Hr")
+        buf = bytearray("#  Act     Hr    Min")
         i2c.writeto(DISPLAY_ADDR, buf)
         
         #tubeActiveLower = lower.tubeActive()
@@ -844,7 +823,9 @@ class Display():
         buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE4])
         i2c.writeto(DISPLAY_ADDR, buf)
         
-        buf = bytearray(str(tubeNumber) + "   " + active + "     " + str(tubeAgeMin)+ "  " + str(tubeAgeHour))
+        #buf = bytearray(str(tubeNumber) + "   " + active + "     " + str(tubeAgeMin)+ "  " + str(tubeAgeHour))
+        
+        buf = bytearray(str(tubeNumber) + "   " + active + "   " + '{:>6}'.format(tubeAgeHour) + "    " + '{:>2}'.format(tubeAgeMin))
         i2c.writeto(DISPLAY_ADDR, buf)
         return
 
@@ -1428,9 +1409,7 @@ class State():
                 dis.clear_display()
                 dis.operate_on()
                 dis.display_select(sel.get_current_select())
-                volume_left = vol.get_current_volume_left()
-                volume_right = vol.get_current_volume_right()
-                dis.display_volume(volume_left, volume_right)
+                vol.update_volume(0)
                 tmp.update()
                 mut.mute_immediate()
                 self.state = STATE_OPERATE
@@ -1463,7 +1442,12 @@ class State():
         return
     
     def tt_dis_to_operate(self):
+        dis.clear_display()
+        dis.operate_on()
+        mut.mute_immediate()
         vol.update_volume(0)
+        dis.display_select(sel.get_current_select())
+        tmp.update()
         self.state = STATE_OPERATE
         return
     
