@@ -1366,6 +1366,8 @@ class State():
                 tim.show_tt(1)
             elif message == VOL_KNOB_CCW:
                 tim.show_tt(-1)
+            elif message == SECOND_BEAT:
+                tim.addSecond()
             elif message == R_PB_PUSHED:
                 self.tt_dis_to_operate()
             elif message == SW_MUTE_ON:
