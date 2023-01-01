@@ -524,6 +524,17 @@ class Mute():
         self.mute_state = MUTE_ST_ON
         return
     
+    def mute_on_soft_nodisplay(self):
+        """Respond to message by turning on soft MUTE but don't update display - use in states where MUTE isn't shown on display."""
+        #dis.mute_on()
+        volume_left = vol.get_current_volume_left()
+        volume_right = vol.get_current_volume_right()
+        mus.vol_down_soft(volume_left, volume_right)
+        rel.mute_on()
+        self.mute_state = MUTE_ST_ON
+        return
+    
+    
     def mute_off_soft(self):
         """Respond to message by turning off soft MUTE."""
         rel.mute_off()
@@ -532,6 +543,13 @@ class Mute():
         mus.vol_up_soft(volume_left, volume_right)        
         dis.mute_off()
         self.mute_state = MUTE_ST_OFF
+        return
+    
+    def display_mute_state(self):
+        if (self.mute_state == MUTE_ST_ON):
+            dis.mute_on()
+        else:
+            dis.mute_off()
         return
         
             
@@ -1350,6 +1368,10 @@ class State():
                 tim.show_tt(-1)
             elif message == R_PB_PUSHED:
                 self.tt_dis_to_operate()
+            elif message == SW_MUTE_ON:
+                mut.mute_on_soft_nodisplay()
+            elif message == SW_MUTE_OFF:
+                mut.mute_off_soft()
                 
 
 
@@ -1444,9 +1466,9 @@ class State():
     def tt_dis_to_operate(self):
         dis.clear_display()
         dis.operate_on()
-        mut.mute_immediate()
         vol.update_volume(0)
         dis.display_select(sel.get_current_select())
+        mut.display_mute_state()
         tmp.update()
         self.state = STATE_OPERATE
         return
