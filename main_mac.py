@@ -3,6 +3,7 @@ import os
 import time
 import uasyncio
 import queue
+import json
 
 
 
@@ -18,7 +19,7 @@ import queue
 
 ###################################################################
 # SW Version
-SW_VERSION = "1.2.1"
+SW_VERSION = "1.2.2"
 
 #minor version 2 adds tube timer
 
@@ -672,30 +673,35 @@ class Display():
         return
     
     def display_select(self, input):
+        # first clear the line
+        buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE2])
+        i2c.writeto(DISPLAY_ADDR, buf)
+        buf = bytearray("                    ")
+        i2c.writeto(DISPLAY_ADDR, buf)
         if (input == 1):
             buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE2])
             i2c.writeto(DISPLAY_ADDR, buf)
-            buf = bytearray("Network Streamer    ")
+            buf = bytearray(selector_info['1'])
             i2c.writeto(DISPLAY_ADDR, buf)
         elif(input == 2):
             buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE2])
             i2c.writeto(DISPLAY_ADDR, buf)
-            buf = bytearray("Moon 260D CD        ")
+            buf = bytearray(selector_info['2'])
             i2c.writeto(DISPLAY_ADDR, buf)
         elif(input == 3):
             buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE2])
             i2c.writeto(DISPLAY_ADDR, buf)
-            buf = bytearray("Basis 2001 Phono    ")
+            buf = bytearray(selector_info['3'])
             i2c.writeto(DISPLAY_ADDR, buf)
         elif(input == 4):
             buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE2])
             i2c.writeto(DISPLAY_ADDR, buf)
-            buf = bytearray("Auxiliary 1         ")
+            buf = bytearray(selector_info['4'])
             i2c.writeto(DISPLAY_ADDR, buf)
         elif(input == 5):
             buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE2])
             i2c.writeto(DISPLAY_ADDR, buf)
-            buf = bytearray("Auxiliary 2         ")
+            buf = bytearray(selector_info['5'])
             i2c.writeto(DISPLAY_ADDR, buf)
         else:
             buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE2])
@@ -1515,6 +1521,12 @@ if (devices):
             print("ERROR: Found I2C device at address", hex(d))       
 else:
     print("FAIL: no I2C devices found!!!")
+
+# get the selector information from json file
+with open ('selector.json') as f:
+    selector_info = json.load(f)
+f.close()
+
 
 
 #pb = Pushbutton()
