@@ -229,20 +229,6 @@ led_red = Pin(25, Pin.OUT)
 ###################################################################
 # Functions
 
-# this timer is the 1s timer for the tube lifetime timer
-#def timer1s_callback(t):
-    #q.put(UPDATE_TEMP)
-    #tim.addSecond()
-    #global timer1s
-    #timer1s = timer1s + 1
-    #print ("seconds timer is ", timer1s)
-    #pass
-
-# this timer closes a 100ms window where a new pushbutton change is not recognized - for debouncing 
-# def timer100ms_callback(t):
-#     pb.allow_change()
-#     pass
-
 
 
 ###################################################################
@@ -1162,11 +1148,6 @@ class TubeTimer():
         self.headingAgeHour = 0
         
         self.displayTube = 1
-        
-        #initialize the tube data - but delete this when doing final builds
-        #tubeDataFile=open("tubeData.txt", "r+")
-        #tubeDataFile.write(0)
-        #tubeDataFile.close()
         return
     
     
@@ -1552,7 +1533,7 @@ bplus_count = BPLUS_DELAY
 
 
 async def seconds_beat():
-    """A message every second for any job that needs to be done on a one seconf time base."""
+    """A message every second for any job that needs to be done on a one second time base."""
     while True:
         await q.put(SECOND_BEAT)
         await uasyncio.sleep_ms(1000)
@@ -1591,12 +1572,8 @@ async def vol_rotated():
         knob_current = vol_enc.change()
         if knob_current == 1:
             await q.put(VOL_KNOB_CW)
-            #await uasyncio.sleep(0.02)
-            #vol_enc.reset_position()
         elif knob_current == -1:
             await q.put(VOL_KNOB_CCW)
-            #await uasyncio.sleep(0.02)
-            #vol_enc.reset_position()
         await uasyncio.sleep(0.01)
     return
 
@@ -1606,12 +1583,8 @@ async def sel_rotated():
         knob_current = sel.change()
         if knob_current == 1:
             await q.put(SEL_KNOB_CW)
-            #await uasyncio.sleep(0.2)
-            #sel.reset_position()
         elif knob_current == -1:
             await q.put(SEL_KNOB_CCW)
-            #await uasyncio.sleep(0.2)
-            #sel.reset_position()
         await uasyncio.sleep(0.01)
     return
 
