@@ -19,7 +19,7 @@ import json
 
 ###################################################################
 # SW Version
-SW_VERSION = "1.2.2"
+SW_VERSION = "1.2.3"
 
 #minor version 2 adds tube timer
 
@@ -174,22 +174,18 @@ NULL_MESSAGE = 0
 
 L_PB_PUSHED = 1
 R_PB_PUSHED = 2
-
 VOL_KNOB_CCW = 3
 VOL_KNOB_CW = 4
-
 SEL_KNOB_CCW = 5
 SEL_KNOB_CW = 6
-
 SW_MUTE_ON = 7
 SW_MUTE_OFF = 8
-
 SW_OPERATE_ON = 9
 SW_OPERATE_OFF = 10
-
 UPDATE_TEMP = 11
-
 SECOND_BEAT = 12
+MINUTE_BEAT = 13
+
 
 SPLASH_DELAY = 3
 FILAMENT_DELAY = 3  # change this to 45 when creating working loads
@@ -249,13 +245,13 @@ class Vol_encoder():
         self.current = vol1_in.value() << 1
         self.current = self.current + vol0_in.value()
         if (self.current != self.last):
-            print("volume encoder changed, new value is", self.current, "old value was", self.last)
+            #print("volume encoder changed, new value is", self.current, "old value was", self.last)
             if self.last == 3 and self.current == 1:
                 volume_change = 1
             elif self.last == 3 and self.current == 2:
                 volume_change = -1
             self.last = self.current
-            print("volume_change is ", volume_change)
+            #print("volume_change is ", volume_change)
         return volume_change
     
     def reset_position(self):
@@ -269,7 +265,7 @@ class Vol_encoder():
         position = 0
         position = vol1_in.value() << 1
         position = position + vol0_in.value()
-        print("vol encoder position is ", position)
+        #print("vol encoder position is ", position)
         return
     
     
@@ -1156,7 +1152,7 @@ class TubeTimer():
     def addSecond(self):
         self.timer = self.timer + 1
         #print("time in seconds ", self.timer)
-        if ((self.timer % 60) == 0):
+        if ((self.timer % 10) == 0):
             self.addMinute()
         return
     
@@ -1170,16 +1166,14 @@ class TubeTimer():
         tubeAge = 0
         i=0
         with open("tubeData.csv", "r") as file:
-            print("reading the tube data from the csv file")
+            #print("reading the tube data from the csv file")
             self.data.clear()
             for lineStr in file:
                 lineStr=lineStr.rstrip("\n")
                 lineStr=lineStr.rstrip("\r")
                 self.data.append(lineStr.split(","))
-                print("list of data on one line read from file",self.data[i])
+                #print("list of data on one line read from file",self.data[i])
                 i+=1
-                
-        file.close()
             
         #find which column has the tube number
         i=0
@@ -1220,14 +1214,14 @@ class TubeTimer():
         self.readTubeData()
         for lineList in self.data:
             if(lineList[self.headingActive] == "yes"):
+                #print(f"lineList is {lineList}")
                 tubeAgeMin = int(lineList[self.headingAgeMin]) + 1
+                #print(f"tubeAgeMin is {tubeAgeMin}")
                 lineList[self.headingAgeMin] = str(tubeAgeMin)
                 if (tubeAgeMin >= 60):
                     lineList[self.headingAgeMin] = "0"
                     lineList[self.headingAgeHour] = str(int(lineList[self.headingAgeHour]) + 1)
-                print("updating tube", lineList[self.headingNumber], "to", lineList[self.headingAgeMin], "minutes and",lineList[self.headingAgeHour], "hours")
-                self.data[self.headingActive][self.headingAgeMin] = lineList[self.headingAgeMin]
-                self.data[self.headingActive][self.headingAgeHour] = lineList[self.headingAgeHour]
+                #print("updating tube", lineList[self.headingNumber], "to", lineList[self.headingAgeMin], "minutes and",lineList[self.headingAgeHour], "hours")
         self.writeTubeData()
         return
     
@@ -1246,22 +1240,22 @@ class TubeTimer():
         self.readTubeData()
         self.displayTube = self.displayTube + change
         
-        print("In show_tt, change is", change)
+        #print("In show_tt, change is", change)
         
         if self.displayTube < 1:
             self.displayTube = 1
         if self.displayTube > len(self.data):
             self.displayTube = len(self.data)
         
-        print("self.displayTube is", self.displayTube)
+        #print("self.displayTube is", self.displayTube)
         
         i=0
         for lineList in self.data:
             if (i > 0):
                 tubeNum = int(lineList[self.headingNumber])
-                print ("tubeNum", tubeNum)
+                #print ("tubeNum", tubeNum)
                 if (tubeNum == self.displayTube):
-                    print("in here, numbers are ", self.displayTube)
+                    #print("in here, numbers are ", self.displayTube)
                     dis.displayTubeTimer(tubeNum, lineList[self.headingActive], lineList[self.headingAgeMin], lineList[self.headingAgeHour])   # tube number, active, minutes, hours
             i = i+1
         return
@@ -1292,9 +1286,8 @@ class State():
                 sel.update_select(-1)
             elif message == SECOND_BEAT:
                 tmp.update()
-                tim.addSecond()
-                #vol_enc.print_current_position()
-                #sel.print_current_position()
+            elif message == MINUTE_BEAT:
+                tim.addMinute()
             elif message == SW_MUTE_ON:
                 mut.mute_on_soft()
             elif message == SW_MUTE_OFF:
@@ -1316,7 +1309,8 @@ class State():
                 sel.update_select(-1)
             elif message == SECOND_BEAT:
                 tmp.update()
-                tim.addSecond()
+            elif message == MINUTE_BEAT:
+                tim.addMinute()
             elif message == SW_MUTE_ON:
                 mut.mute_on_soft()
             elif message == SW_MUTE_OFF:
@@ -1353,8 +1347,9 @@ class State():
                 tim.show_tt(1)
             elif message == VOL_KNOB_CCW:
                 tim.show_tt(-1)
-            elif message == SECOND_BEAT:
-                tim.addSecond()
+            elif message == MINUTE_BEAT:
+                tim.addMinute()
+                tim.show_tt(0)
             elif message == R_PB_PUSHED:
                 self.tt_dis_to_operate()
             elif message == SW_MUTE_ON:
@@ -1504,9 +1499,15 @@ else:
     print("FAIL: no I2C devices found!!!")
 
 # get the selector information from json file
-with open ('selector.json') as f:
-    selector_info = json.load(f)
-f.close()
+
+default_selections = '{"1": "Input 1", "2": "Input 2", "3": "Input 3", "4": "Input 4", "5": "Input 5"}'
+
+try:
+    with open('selector.json', 'r') as f:
+        selector_info = json.load(f)
+except ValueError:
+    selector_info = json.loads(default_selections)
+    print('Error: Invalid JSON data file selector.json, using default selection strings')
 
 
 
@@ -1537,6 +1538,14 @@ async def seconds_beat():
     while True:
         await q.put(SECOND_BEAT)
         await uasyncio.sleep_ms(1000)
+    return
+
+
+async def minutes_beat():
+    """A message every second for any job that needs to be done on a one second time base."""
+    while True:
+        await q.put(MINUTE_BEAT)
+        await uasyncio.sleep(60)
     return
 
 
@@ -1646,8 +1655,9 @@ async def amp_body():
     uasyncio.create_task(operate_input())
     uasyncio.create_task(mute_input())
     
-    #create coroutine with 1 second beat
+    #create coroutine with time-based beats
     uasyncio.create_task(seconds_beat())
+    uasyncio.create_task(minutes_beat())
     
     
     dis.display_splash()
