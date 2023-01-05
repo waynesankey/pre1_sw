@@ -24,7 +24,7 @@ SW_VERSION = "1.2.3"
 #minor version 2 adds tube timer
 
 ###################################################################
-# Display Constants
+# Display Constants - Newhaven Display NHD-0420D3Z-NSW-BBW-V3
 
 # I2C Address
 DISPLAY_ADDR = 0x28
@@ -37,13 +37,13 @@ REG_CONTRAST = 0x52
 REG_BRIGHTNESS = 0x53
 INITIAL_BRIGHTNESS = 0x02
 STANDBY_BRIGHTNESS = 0x02
+MAX_BRIGHTNESS = 0x08
 
 DISPLAY_LINE1 = 0x00
 DISPLAY_LINE2 = 0x40
 DISPLAY_LINE3 = 0x14
 DISPLAY_LINE4 = 0x54
 
-VOLUME_POSITION = 7
 MUTE_POSITION = 16
 STANDBY_POSITION = 0x47
 
@@ -57,6 +57,7 @@ STATE_STANDBY = 4
 STATE_TUBETIMER = 5
 STATE_BALANCE = 6
 STATE_TT_DISPLAY = 7
+STATE_BRIGHTNESS = 8
 
 
 
@@ -82,7 +83,8 @@ MUSES_ATTEN_0 = 0x10
 
 
 ###################################################################
-# Relay Constants
+# Relay Constants - Panasonic DS2E-SL2-DC12V
+# These are really high quality latching relays used in super high end preamps eg Pass Labs.
 
 # Relays are reversed bits (it's a SR so the first bit to arrive ends up at the end of the SR):
 # Also, the reverse bit ordering in the SPI class is not implemented so you can't just code
@@ -104,7 +106,7 @@ MUSES_ATTEN_0 = 0x10
 REL_ON = 1
 REL_OFF = 0
 
-REL_LATCH_TIME = 20
+REL_LATCH_TIME = 20   # this is about double the required amount
 
 REL_FILAMENT = 0
 REL_BPLUS = 1
@@ -591,7 +593,7 @@ class Operate():
 class Display():
     def __init__(self):
         self.brightness = INITIAL_BRIGHTNESS
-        self.set_brightness(self.brightness)
+        self.change_brightness(0)
         self.clear_display()
         return
         
@@ -599,15 +601,43 @@ class Display():
     def clear_display(self):
         buf = bytearray([REG_PREFIX, REG_CLEAR])
         i2c.writeto(DISPLAY_ADDR, buf)
-        time.sleep_ms(1)
+        time.sleep_us(1500)
         return
     
-    def set_brightness(self, brightness):
-        buf = bytearray([REG_PREFIX, REG_BRIGHTNESS, brightness])
+    def set_brightness_standby(self):
+        buf = bytearray([REG_PREFIX, REG_BRIGHTNESS, STANDBY_BRIGHTNESS])
         i2c.writeto(DISPLAY_ADDR, buf)
-        time.sleep_ms(1)
+        time.sleep_us(100)
         return
- 
+    
+    def change_brightness(self, change):
+        if change < -1:
+            print(f"Error: change_brightness can only change by -1, 0, 1 - input change was {change}")
+            return
+        if change > 1:
+            print(f"Error: change_brightness can only change by -1, 0, 1 - input change was {change}")
+            return
+        self.brightness = self.brightness + change
+        if self.brightness < 0:
+            self.brightness = 0
+        if self.brightness > MAX_BRIGHTNESS:
+            self.brightness = MAX_BRIGHTNESS
+        buf = bytearray([REG_PREFIX, REG_BRIGHTNESS, self.brightness])
+        i2c.writeto(DISPLAY_ADDR, buf)
+        time.sleep_us(100)
+        return
+    
+    def display_brightness(self):
+        buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE2])
+        i2c.writeto(DISPLAY_ADDR, buf)
+        buf = bytearray(f"      Display       ")
+        i2c.writeto(DISPLAY_ADDR, buf)
+        
+        buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE3])
+        i2c.writeto(DISPLAY_ADDR, buf)
+        buf = bytearray(f"   Brightness: {self.brightness}")
+        i2c.writeto(DISPLAY_ADDR, buf)
+        return
     
     def display_volume(self, volume_left, volume_right):
         buf = bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE1])
@@ -785,7 +815,7 @@ class Display():
 
     def standby_screen(self):
         self.clear_display()
-        self.set_brightness(STANDBY_BRIGHTNESS)
+        self.set_brightness_standby()
         buf = bytearray([REG_PREFIX, REG_POSITION, STANDBY_POSITION])
         i2c.writeto(DISPLAY_ADDR, buf)
         buf = bytearray("STANDBY")
@@ -1351,7 +1381,9 @@ class State():
                 tim.addMinute()
                 tim.show_tt(0)
             elif message == R_PB_PUSHED:
-                self.tt_dis_to_operate()
+                self.goto_operate()
+            elif message == L_PB_PUSHED:
+                self.tt_dis_to_bright()
             elif message == SW_MUTE_ON:
                 mut.mute_on_soft_nodisplay()
             elif message == SW_MUTE_OFF:
@@ -1359,6 +1391,21 @@ class State():
             elif message == SW_OPERATE_OFF:
                 self.goto_standby()
                 
+        elif self.state == STATE_BRIGHTNESS:
+            if message == VOL_KNOB_CW:
+                dis.change_brightness(1)
+                dis.display_brightness()
+            elif message == VOL_KNOB_CCW:
+                dis.change_brightness(-1)
+                dis.display_brightness()
+            elif message == R_PB_PUSHED:
+                self.goto_operate()
+            elif message == SW_MUTE_ON:
+                mut.mute_on_soft_nodisplay()
+            elif message == SW_MUTE_OFF:
+                mut.mute_off_soft()
+            elif message == SW_OPERATE_OFF:
+                self.goto_standby()
 
 
         return
@@ -1449,7 +1496,7 @@ class State():
         self.state = STATE_TT_DISPLAY
         return
     
-    def tt_dis_to_operate(self):
+    def goto_operate(self):
         dis.clear_display()
         dis.operate_on()
         vol.update_volume(0)
@@ -1459,6 +1506,14 @@ class State():
         self.state = STATE_OPERATE
         return
     
+    def tt_dis_to_bright(self):
+        dis.clear_display()
+        dis.display_brightness()
+        self.state = STATE_BRIGHTNESS
+        return
+
+
+
     
     
         
