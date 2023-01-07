@@ -1398,6 +1398,8 @@ class State():
             elif message == VOL_KNOB_CCW:
                 dis.change_brightness(-1)
                 dis.display_brightness()
+            elif message == MINUTE_BEAT:
+                tim.addMinute()
             elif message == R_PB_PUSHED:
                 self.goto_operate()
             elif message == SW_MUTE_ON:
