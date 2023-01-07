@@ -19,7 +19,7 @@ import json
 
 ###################################################################
 # SW Version
-SW_VERSION = "1.2.3"
+SW_VERSION = "1.2.4"
 
 #minor version 2 adds tube timer
 
