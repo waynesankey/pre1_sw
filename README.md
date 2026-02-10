@@ -1,32 +1,75 @@
-# Release Notes
-## Project: Preamp Controller 1
+# Preamp Controller 1 (4P1L Tube Preamp)
 Wayne Sankey, Plano TX USA
 
-Circa 2021/22.  Restarted 2026.
+MicroPython firmware for a Raspberry Pi Pico based tube preamp controller.
 
-A microcontroller for a tube preamplifier.  The preamp has a custom PCB that fits vertically along the rear of the chassis and contains the audio connectors, relays for muting, audio input selection and power sequencing; and high end Muses 72320 volume control chips. The controller also drives a front panel 4x20 character backlit LCD display and accepts inputs from the front panel encoders and switches.
-### Pre-release
-There was an STM32 test board with C program used for a first controller project iteration but this was abandoned because PCBs were no longer available due to supply chain issues during the Covid pandemic.  Lead times became unknown, and I'm not prepared to wait some unbounded time, with the risk that boards would never again become available.
+The controller drives:
+- 4x20 Newhaven LCD over I2C
+- Muses 72320 volume control chips over SPI
+- Latching relay matrix for input select, mute, filament, and B+ power sequencing
+- Front panel encoders and switches
+- Tube timer data in `tubeData.csv`
 
-Therefore, the decision was made to upgrade to Raspberry Pi Pico using MicroPython for programming.  OOP in Python is much easier to write than C for STM32 and provides more stability, less complexity, less bugs, much easier and faster to write.  Also the far expanded and richer I/O capability of the Pico boards made an excellent update; in contrast the STM32 took a lot of time and careful planning to get the I/O to work in the project due to limited and specialized I/O.  The Pico was easy to configure and there are lots of GPIO leftover for later expansion if needed.
+## Current Software Version
+- `1.2.5`
 
-### Release 1.1.1
-Feb 27, 2022: Initial Release to Github and onto amplifier target prototype.
-Issue #1: upon release of standby, main screen items come back delayed in time.
+## Project Structure
+```text
+pre1_sw/
+├── main.py
+├── config.py
+├── modules/
+│   ├── __init__.py
+│   ├── display.py
+│   ├── encoder.py
+│   ├── muses72320.py
+│   ├── mute.py
+│   ├── operate.py
+│   ├── relay.py
+│   ├── selector.py
+│   ├── state.py
+│   ├── temperature.py
+│   ├── tube_timer.py
+│   └── volume.py
+├── lib/
+│   └── queue.py
+├── selector.json
+├── tubeData.csv
+└── README.md
+```
 
-### Release 1.2.1
-Date:
-Fixed Issue #1.  (not complete)
+## Refactor Summary (v1.2.5)
+- Moved constants/configuration into `config.py`
+- Split monolithic `main.py` class definitions into one-class-per-file modules
+- Separated `Mute` functionality into `modules/mute.py` (no longer part of display logic)
+- Kept async message-queue architecture in `main.py`
+- Preserved full tube preamp state model and sequencing behavior
 
-Added standby screen same as the STM32 program - different from the operational screen.
+## State Machine (Not Simplified)
+This project keeps the full tube-oriented state flow:
+- `STATE_STARTUP`
+- `STATE_FILAMENT`
+- `STATE_BPLUS`
+- `STATE_OPERATE`
+- `STATE_STANDBY`
+- `STATE_BALANCE`
+- `STATE_TT_DISPLAY`
+- `STATE_BRIGHTNESS`
 
-### Update to 2026 Micropython
-Date: Jan 19 2026
-Created git branch update_micropyton_v1_27_0 and uploaded that version uf2 to the testbed pico.  Device ran but there are no peripherals plugged in so it stopped running when it wanted some input from eg the display to set the brihtness.
-When I want to continue, I'll need to get the full proto running.
+Tube timer and temperature updates remain active in the same operational contexts as before.
 
-To Do:
-* break project into modules for modularity
-* Add Tube Timer
-* Add balance control
-* testing 123
+## Module Responsibilities
+- `modules/state.py`: main state transitions and dispatch logic
+- `modules/display.py`: LCD UI rendering, splash, standby, warmup, tube timer screens
+- `modules/mute.py`: mute switch/state behavior, soft mute ramps, forced mute paths
+- `modules/relay.py`: relay shift-register writes, input select, filament/B+/mute relay control
+- `modules/muses72320.py`: volume chip writes and soft ramp methods
+- `modules/volume.py`: volume/balance math and display/chip updates
+- `modules/selector.py`: input selection behavior with soft volume down/up around switching
+- `modules/temperature.py`: MPC9808 read/calculate/display
+- `modules/tube_timer.py`: tube age read/increment/write and display selection
+- `modules/encoder.py`: quadrature encoder decode helper
+- `modules/operate.py`: OPERATE switch state helper
+
+## Release Notes
+- `1.2.5` (2026-02-10): modularized codebase, extracted `config.py`, split `Mute` class, retained full tube-state sequencing.
