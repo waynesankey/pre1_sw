@@ -49,6 +49,22 @@ class Volume:
         self.dis.display_balance(self.balance_left, self.balance_right)
         self.mus.write(self.volume_left, self.volume_right)
 
+    def set_state(self, volume, balance):
+        self.volume = max(0, min(volume, MAX_VOLUME))
+        self.balance = max(-MAX_BALANCE, min(balance, MAX_BALANCE))
+        self.balance_left = 0 - self.balance
+        self.balance_right = self.balance
+        self.volume_left = self.volume + self.balance_left
+        self.volume_right = self.volume + self.balance_right
+        self.volume_left = max(0, min(self.volume_left, MAX_VOLUME))
+        self.volume_right = max(0, min(self.volume_right, MAX_VOLUME))
+
+    def get_current_volume(self):
+        return self.volume
+
+    def get_current_balance(self):
+        return self.balance
+
     def get_current_volume_left(self):
         return self.volume_left
 

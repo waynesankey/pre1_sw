@@ -9,6 +9,7 @@ The controller drives:
 - Latching relay matrix for input select, mute, filament, and B+ power sequencing
 - Front panel encoders and switches
 - Tube timer data in `tubeData.csv`
+- Persisted user settings in `amp_state.json` for outage recovery
 
 ## Current Software Version
 - `1.2.5`
@@ -34,6 +35,7 @@ pre1_sw/
 ├── lib/
 │   └── queue.py
 ├── selector.json
+├── amp_state.json
 ├── tubeData.csv
 └── README.md
 ```
@@ -43,6 +45,7 @@ pre1_sw/
 - Split monolithic `main.py` class definitions into one-class-per-file modules
 - Separated `Mute` functionality into `modules/mute.py` (no longer part of display logic)
 - Kept async message-queue architecture in `main.py`
+- Added delayed persistence of volume/balance/input/brightness to `amp_state.json`
 - Preserved full tube preamp state model and sequencing behavior
 
 ## State Machine (Not Simplified)
@@ -70,6 +73,7 @@ Tube timer and temperature updates remain active in the same operational context
 - `modules/tube_timer.py`: tube age read/increment/write and display selection
 - `modules/encoder.py`: quadrature encoder decode helper
 - `modules/operate.py`: OPERATE switch state helper
+- `amp_state.json`: saved control state restored after controller power loss
 
 ## Release Notes
-- `1.2.5` (2026-02-10): modularized codebase, extracted `config.py`, split `Mute` class, retained full tube-state sequencing.
+- `1.2.5` (2026-02-10): modularized codebase, extracted `config.py`, split `Mute` class, retained full tube-state sequencing, and restored `amp_state.json` persistence.

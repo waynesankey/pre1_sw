@@ -3,6 +3,10 @@
 # SW Version
 SW_VERSION = "1.2.5"
 
+# Persisted settings
+STATE_FILE = "amp_state.json"
+STATE_WRITE_DELAY_MS = 10_000
+
 # Display Constants - Newhaven Display NHD-0420D3Z-NSW-BBW-V3
 DISPLAY_ADDR = 0x28
 REG_PREFIX = 0xFE

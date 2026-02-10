@@ -1,4 +1,6 @@
 from machine import Pin, I2C, SPI
+import json
+import time
 import uasyncio
 
 from config import *
@@ -67,11 +69,57 @@ tmp = MPC9808(i2c, dis)
 tim = TubeTimer(dis)
 st = State()
 q = Queue(32)
+persist_dirty = False
+persist_due_ms = 0
 
 print("Vol0 Encoder Input pin 5:", vol0_in.value())
 print("Vol1 Encoder Input pin 6:", vol1_in.value())
 print("Sel0 Encoder Input pin 2:", sel0_in.value())
 print("Sel1 Encoder Input pin 3:", sel1_in.value())
+
+
+def load_persisted_state():
+    try:
+        with open(STATE_FILE, "r") as f:
+            data = json.load(f)
+            print("Loaded persisted state:", data)
+            return data
+    except (OSError, ValueError):
+        return None
+
+
+def apply_persisted_state(saved):
+    if not saved:
+        return
+    vol.set_state(saved.get("volume", 0), saved.get("balance", 0))
+    sel.set_select(saved.get("select", SELECT_STREAMING))
+    dis.set_brightness(saved.get("brightness", INITIAL_BRIGHTNESS))
+
+
+def mark_persist_dirty():
+    global persist_dirty, persist_due_ms
+    persist_dirty = True
+    persist_due_ms = time.ticks_add(time.ticks_ms(), STATE_WRITE_DELAY_MS)
+
+
+async def persist_state_task():
+    global persist_dirty, persist_due_ms
+    while True:
+        if persist_dirty and time.ticks_diff(time.ticks_ms(), persist_due_ms) >= 0:
+            state = {
+                "volume": vol.get_current_volume(),
+                "balance": vol.get_current_balance(),
+                "select": sel.get_current_select(),
+                "brightness": dis.get_brightness(),
+            }
+            try:
+                with open(STATE_FILE, "w") as f:
+                    json.dump(state, f)
+                persist_dirty = False
+                print("Persisted state:", state)
+            except OSError as exc:
+                print("Error writing state file:", exc)
+        await uasyncio.sleep_ms(250)
 
 
 async def seconds_beat():
@@ -155,6 +203,8 @@ async def mute_input():
 
 
 async def amp_body():
+    apply_persisted_state(load_persisted_state())
+
     uasyncio.create_task(l_pb_input())
     uasyncio.create_task(r_pb_input())
     uasyncio.create_task(vol_rotated())
@@ -163,6 +213,7 @@ async def amp_body():
     uasyncio.create_task(mute_input())
     uasyncio.create_task(seconds_beat())
     uasyncio.create_task(minutes_beat())
+    uasyncio.create_task(persist_state_task())
 
     dis.display_splash()
 
@@ -170,6 +221,15 @@ async def amp_body():
         if not q.empty():
             message = await q.get()
             st.dispatch(message, vol, sel, mut, dis, rel, op, tmp, tim)
+            if message in (
+                VOL_KNOB_CW,
+                VOL_KNOB_CCW,
+                SEL_KNOB_CW,
+                SEL_KNOB_CCW,
+                L_PB_PUSHED,
+                R_PB_PUSHED,
+            ):
+                mark_persist_dirty()
         await uasyncio.sleep_ms(10)
 
 

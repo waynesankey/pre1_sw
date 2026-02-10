@@ -33,3 +33,6 @@ class Selector:
 
     def get_current_select(self):
         return self.select
+
+    def set_select(self, select_value):
+        self.select = max(SELECT_STREAMING, min(select_value, SELECT_AUX2))

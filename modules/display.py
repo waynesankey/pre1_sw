@@ -35,6 +35,14 @@ class Display:
         self.i2c.writeto(DISPLAY_ADDR, bytearray([REG_PREFIX, REG_BRIGHTNESS, self.brightness]))
         time.sleep_us(100)
 
+    def set_brightness(self, brightness):
+        self.brightness = max(0, min(brightness, MAX_BRIGHTNESS))
+        self.i2c.writeto(DISPLAY_ADDR, bytearray([REG_PREFIX, REG_BRIGHTNESS, self.brightness]))
+        time.sleep_us(100)
+
+    def get_brightness(self):
+        return self.brightness
+
     def display_brightness(self):
         self.i2c.writeto(DISPLAY_ADDR, bytearray([REG_PREFIX, REG_POSITION, DISPLAY_LINE2]))
         self.i2c.writeto(DISPLAY_ADDR, bytearray("      Display       "))
