@@ -75,5 +75,30 @@ Tube timer and temperature updates remain active in the same operational context
 - `modules/operate.py`: OPERATE switch state helper
 - `amp_state.json`: saved control state restored after controller power loss
 
+## Upload To Pico
+The project includes two upload workflows:
+
+1. MicroPico project upload via staged `pico/` folder
+2. Direct upload using `mpremote`
+
+### Method 1: MicroPico (staged folder)
+- Run VSCode task: `Pico: Sync pico/ folder`
+- This runs `./sync_pico.sh`, which rebuilds `pico/` with all required runtime files:
+  - `main.py`, `config.py`, `selector.json`, `tubeData.csv`
+  - `amp_state.json` (if present)
+  - `lib/*.py`, `modules/*.py`
+- Then run Command Palette action: `MicroPico: Upload Project to Pico`
+
+### Method 2: mpremote (one step)
+- Run VSCode task: `Pico: Upload using mpremote`
+- This runs `./upload_pico.sh`, which:
+  - detects Pico serial port (or uses `PORT=/dev/cu.usbmodemXXXX`)
+  - removes prior files on Pico (`main.py`, `config.py`, `selector.json`, `tubeData.csv`, `amp_state.json`, `lib`, `modules`)
+  - uploads current files and resets the board
+
+### Notes
+- If MicroPico has the serial port open, `mpremote` upload may fail until that port is released.
+- If file structure changes, update `sync_pico.sh` and `upload_pico.sh` so deployment stays complete and deterministic.
+
 ## Release Notes
 - `1.2.5` (2026-02-10): modularized codebase, extracted `config.py`, split `Mute` class, retained full tube-state sequencing, and restored `amp_state.json` persistence.
