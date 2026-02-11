@@ -79,3 +79,34 @@ class TubeTimer:
                         line_list[self.heading_age_min],
                         line_list[self.heading_age_hour],
                     )
+
+    def get_tube_record(self, tube_number):
+        self.read_tube_data()
+        for i, line_list in enumerate(self.data):
+            if i == 0:
+                continue
+            tube_num = int(line_list[self.heading_number])
+            if tube_num == tube_number:
+                return {
+                    "number": tube_num,
+                    "active": line_list[self.heading_active],
+                    "age_min": int(line_list[self.heading_age_min]),
+                    "age_hour": int(line_list[self.heading_age_hour]),
+                }
+        return None
+
+    def get_all_tube_records(self):
+        self.read_tube_data()
+        rows = []
+        for i, line_list in enumerate(self.data):
+            if i == 0:
+                continue
+            rows.append(
+                {
+                    "number": int(line_list[self.heading_number]),
+                    "active": line_list[self.heading_active],
+                    "age_min": int(line_list[self.heading_age_min]),
+                    "age_hour": int(line_list[self.heading_age_hour]),
+                }
+            )
+        return rows

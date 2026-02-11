@@ -54,30 +54,47 @@ class Mute:
             self.mus.vol_up_soft(volume_left, volume_right)
 
     def mute_on_soft(self):
+        if self.mute_state == MUTE_ST_ON:
+            return False
         self.dis.mute_on()
         volume_left = self.vol.get_current_volume_left()
         volume_right = self.vol.get_current_volume_right()
         self.mus.vol_down_soft(volume_left, volume_right)
         self.rel.mute_on()
         self.mute_state = MUTE_ST_ON
+        return True
 
     def mute_on_soft_nodisplay(self):
+        if self.mute_state == MUTE_ST_ON:
+            return False
         volume_left = self.vol.get_current_volume_left()
         volume_right = self.vol.get_current_volume_right()
         self.mus.vol_down_soft(volume_left, volume_right)
         self.rel.mute_on()
         self.mute_state = MUTE_ST_ON
+        return True
 
     def mute_off_soft(self):
+        if self.mute_state == MUTE_ST_OFF:
+            return False
         self.rel.mute_off()
         volume_left = self.vol.get_current_volume_left()
         volume_right = self.vol.get_current_volume_right()
         self.mus.vol_up_soft(volume_left, volume_right)
         self.dis.mute_off()
         self.mute_state = MUTE_ST_OFF
+        return True
 
     def display_mute_state(self):
         if self.mute_state == MUTE_ST_ON:
             self.dis.mute_on()
         else:
             self.dis.mute_off()
+
+    def get_mute_state(self):
+        return self.mute_state
+
+    def set_mute_from_uart(self, mute_on):
+        if mute_on:
+            return self.mute_on_soft()
+        return self.mute_off_soft()

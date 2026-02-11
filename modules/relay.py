@@ -60,63 +60,58 @@ class Relay:
         self.write()
 
     def deselect_all(self):
-        self.relay_array[REL_SEL1RESET] = REL_ON
-        self.relay_array[REL_SEL2RESET] = REL_ON
-        self.relay_array[REL_SEL3RESET] = REL_ON
-        self.relay_array[REL_SEL4RESET] = REL_ON
-        self.relay_array[REL_SEL5RESET] = REL_ON
-        self.write()
-        time.sleep_ms(REL_LATCH_TIME)
-        self.relay_array[REL_SEL1RESET] = REL_OFF
-        self.relay_array[REL_SEL2RESET] = REL_OFF
-        self.relay_array[REL_SEL3RESET] = REL_OFF
-        self.relay_array[REL_SEL4RESET] = REL_OFF
-        self.relay_array[REL_SEL5RESET] = REL_OFF
-        self.write()
+        # Pulse reset coils serially to avoid current spikes.
+        for i in [REL_SEL1RESET, REL_SEL2RESET, REL_SEL3RESET, REL_SEL4RESET, REL_SEL5RESET]:
+            self.relay_array[i] = REL_ON
+            self.write()
+            time.sleep_ms(REL_LATCH_TIME)
+            self.relay_array[i] = REL_OFF
+            self.write()
+            time.sleep_ms(REL_LATCH_TIME)
 
     def select(self, input_select):
         self.deselect_all()
         time.sleep_ms(REL_LATCH_TIME)
-        if input_select == SELECT_STREAMING:
-            self.select_streaming()
-        elif input_select == SELECT_CD:
-            self.select_cd()
-        elif input_select == SELECT_PHONO:
-            self.select_phono()
-        elif input_select == SELECT_AUX1:
-            self.select_aux1()
-        elif input_select == SELECT_AUX2:
-            self.select_aux2()
+        if input_select == 1:
+            self.select_1()
+        elif input_select == 2:
+            self.select_2()
+        elif input_select == 3:
+            self.select_3()
+        elif input_select == 4:
+            self.select_4()
+        elif input_select == 5:
+            self.select_5()
 
-    def select_streaming(self):
+    def select_1(self):
         self.relay_array[REL_SEL1SET] = REL_ON
         self.write()
         time.sleep_ms(REL_LATCH_TIME)
         self.relay_array[REL_SEL1SET] = REL_OFF
         self.write()
 
-    def select_cd(self):
+    def select_2(self):
         self.relay_array[REL_SEL2SET] = REL_ON
         self.write()
         time.sleep_ms(REL_LATCH_TIME)
         self.relay_array[REL_SEL2SET] = REL_OFF
         self.write()
 
-    def select_phono(self):
+    def select_3(self):
         self.relay_array[REL_SEL3SET] = REL_ON
         self.write()
         time.sleep_ms(REL_LATCH_TIME)
         self.relay_array[REL_SEL3SET] = REL_OFF
         self.write()
 
-    def select_aux1(self):
+    def select_4(self):
         self.relay_array[REL_SEL4SET] = REL_ON
         self.write()
         time.sleep_ms(REL_LATCH_TIME)
         self.relay_array[REL_SEL4SET] = REL_OFF
         self.write()
 
-    def select_aux2(self):
+    def select_5(self):
         self.relay_array[REL_SEL5SET] = REL_ON
         self.write()
         time.sleep_ms(REL_LATCH_TIME)

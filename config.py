@@ -87,12 +87,10 @@ OPERATE_ST_ON = 1
 PB_PUSHED = 0
 PB_RELEASED = 1
 
-SELECT_NONE = 0
-SELECT_STREAMING = 1
-SELECT_CD = 2
-SELECT_PHONO = 3
-SELECT_AUX1 = 4
-SELECT_AUX2 = 5
+# Selector bounds (numeric, data-driven from selector.json where possible)
+SELECT_MIN = 1
+SELECT_COUNT = 5
+SELECT_DEFAULT = 1
 
 # Messages to pass on the Queue
 NULL_MESSAGE = 0
