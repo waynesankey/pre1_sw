@@ -25,11 +25,13 @@ pre1_sw/
 │   ├── encoder.py
 │   ├── muses72320.py
 │   ├── mute.py
+│   ├── nosensor.py
 │   ├── operate.py
+│   ├── mpc9808.py
 │   ├── relay.py
 │   ├── selector.py
 │   ├── state.py
-│   ├── temperature.py
+│   ├── tempsensor.py
 │   ├── tube_timer.py
 │   └── volume.py
 ├── lib/
@@ -69,7 +71,9 @@ Tube timer and temperature updates remain active in the same operational context
 - `modules/muses72320.py`: volume chip writes and soft ramp methods
 - `modules/volume.py`: volume/balance math and display/chip updates
 - `modules/selector.py`: input selection behavior with soft volume down/up around switching
-- `modules/temperature.py`: MPC9808 read/calculate/display
+- `modules/tempsensor.py`: base temperature sensor interface (`TempSensor`)
+- `modules/nosensor.py`: no-hardware temperature implementation (`NoSensor`)
+- `modules/mpc9808.py`: MPC9808 hardware implementation (`MPC9808`)
 - `modules/tube_timer.py`: tube age read/increment/write and display selection
 - `modules/encoder.py`: quadrature encoder decode helper
 - `modules/operate.py`: OPERATE switch state helper

@@ -7,6 +7,10 @@ SW_VERSION = "1.2.5"
 STATE_FILE = "amp_state.json"
 STATE_WRITE_DELAY_MS = 10_000
 
+# Runtime feature flags
+# Set to False on testbeds where the MPC9808 is not populated.
+ENABLE_TEMP_SENSOR = False
+
 # Display Constants - Newhaven Display NHD-0420D3Z-NSW-BBW-V3
 DISPLAY_ADDR = 0x28
 REG_PREFIX = 0xFE

@@ -8,11 +8,12 @@ from modules.display import Display
 from modules.encoder import Encoder_25LB22_Q
 from modules.muses72320 import Muses72320
 from modules.mute import Mute
+from modules.nosensor import NoSensor
 from modules.operate import Operate
+from modules.mpc9808 import MPC9808
 from modules.relay import Relay
 from modules.selector import Selector
 from modules.state import State
-from modules.temperature import MPC9808
 from modules.tube_timer import TubeTimer
 from modules.volume import Volume
 from lib.queue import Queue
@@ -65,7 +66,11 @@ rel = Relay(spiRel, spiCsRel)
 sel = Selector(vol, mus, dis, rel)
 mut = Mute(mute_in, dis, vol, mus, rel, sel)
 op = Operate(operate_in)
-tmp = MPC9808(i2c, dis)
+if ENABLE_TEMP_SENSOR:
+    tmp = MPC9808(i2c, dis)
+else:
+    tmp = NoSensor()
+    print("Temperature sensor disabled by ENABLE_TEMP_SENSOR flag")
 tim = TubeTimer(dis)
 st = State()
 q = Queue(32)
