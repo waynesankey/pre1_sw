@@ -21,7 +21,7 @@ wheels/
 *.egg
 
 # MicroPython
-.micropico/
+.micropico
 typings/
 
 # IDE
