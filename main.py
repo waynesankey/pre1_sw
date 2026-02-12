@@ -75,9 +75,12 @@ else:
 tim = TubeTimer(dis)
 st = State()
 q = Queue(32)
+uart_tx_q = Queue(128)
 persist_dirty = False
 persist_due_ms = 0
 last_temp_published = None
+uart_rx_buffer = ""
+uart_last_rx_ms = 0
 
 print("Vol0 Encoder Input pin 5:", vol0_in.value())
 print("Vol1 Encoder Input pin 6:", vol1_in.value())
@@ -110,7 +113,29 @@ def mark_persist_dirty():
 
 
 def send_uart_line(line):
-    uart0.write((line + "\n").encode("utf-8"))
+    text = str(line).replace("\r", " ").replace("\n", " ").strip()
+    if not text:
+        return
+    try:
+        uart_tx_q.put_nowait(text)
+    except Exception:
+        # Keep the most recent telemetry/acks flowing under burst load.
+        try:
+            uart_tx_q.get_nowait()
+            uart_tx_q.put_nowait(text)
+        except Exception:
+            pass
+
+
+async def uart_output():
+    while True:
+        line = await uart_tx_q.get()
+        try:
+            uart0.write((line + "\n").encode("utf-8"))
+        except Exception as exc:
+            print("UART TX error:", exc)
+        # Small pacing helps avoid RX FIFO overruns on the bridge.
+        await uasyncio.sleep_ms(2)
 
 
 def send_state_line():
@@ -141,6 +166,35 @@ def send_tube_line(record):
     )
 
 
+def parse_kv_tokens(tokens):
+    kv = {}
+    for token in tokens:
+        if "=" not in token:
+            continue
+        key, value = token.split("=", 1)
+        kv[key.upper()] = value
+    return kv
+
+
+def parse_active(value):
+    v = value.strip().lower()
+    if v in ("y", "yes", "1", "true", "on"):
+        return "yes"
+    if v in ("n", "no", "0", "false", "off"):
+        return "no"
+    return None
+
+
+def parse_nonneg_int(value):
+    try:
+        n = int(value)
+    except ValueError:
+        return None
+    if n < 0:
+        return None
+    return n
+
+
 def send_amp_states_line():
     send_uart_line(
         "AMP_STATES "
@@ -154,6 +208,23 @@ def send_amp_states_line():
         "7=TT_DISPLAY "
         "8=BRIGHTNESS"
     )
+
+
+def send_tubes_end_line():
+    # Keep end-of-list marker from starting with "TUBE" so host parsers
+    # using startswith("TUBE") do not treat it as a data row.
+    send_uart_line("END TUBES")
+
+
+def send_tube_save_done_line(tube_number):
+    # Explicit completion signal for host UI status annunciators.
+    send_uart_line("DONE SAVE NUM=%d MSG=Operation_completed" % tube_number)
+
+
+def send_all_tubes():
+    for record in tim.get_all_tube_records():
+        send_tube_line(record)
+    send_tubes_end_line()
 
 
 async def persist_state_task():
@@ -256,20 +327,85 @@ async def mute_input():
         await uasyncio.sleep(0.10)
 
 
+def _next_uart_cmd_index(text, start):
+    markers = ("GET ", "SET ", "ADD ", "DEL ")
+    found = -1
+    for marker in markers:
+        idx = text.find(marker, start)
+        if idx >= 0 and (found < 0 or idx < found):
+            found = idx
+    return found
+
+
+def extract_uart_commands(buffer, flush_incomplete=False):
+    commands = []
+    text = buffer.replace("\r", "\n")
+
+    while True:
+        text = text.lstrip("\n\t ")
+        if not text:
+            return commands, ""
+
+        first = _next_uart_cmd_index(text, 0)
+        if first < 0:
+            if flush_incomplete:
+                line = text.strip()
+                if line:
+                    commands.append(line)
+                return commands, ""
+            return commands, text
+        if first > 0:
+            text = text[first:]
+
+        next_marker = _next_uart_cmd_index(text, 1)
+        newline = text.find("\n", 1)
+        cut = -1
+        use_newline = False
+        if newline >= 0 and (next_marker < 0 or newline < next_marker):
+            cut = newline
+            use_newline = True
+        elif next_marker >= 0:
+            cut = next_marker
+
+        if cut < 0:
+            if flush_incomplete:
+                line = text.strip()
+                if line:
+                    commands.append(line)
+                return commands, ""
+            return commands, text
+
+        line = text[:cut].strip()
+        if line:
+            commands.append(line)
+        if use_newline:
+            text = text[cut + 1:]
+        else:
+            text = text[cut:]
+
+
 async def uart_input():
+    global uart_rx_buffer, uart_last_rx_ms
     while True:
         if uart0.any():
-            raw = uart0.readline()
+            raw = uart0.read()
             if raw:
+                if isinstance(raw, str):
+                    raw = raw.encode("utf-8")
                 try:
-                    if isinstance(raw, str):
-                        line = raw.strip()
-                    else:
-                        line = bytes(raw).decode("utf-8").strip()
+                    uart_rx_buffer += bytes(raw).decode("utf-8")
                 except UnicodeError:
-                    send_uart_line("ERR BAD_VALUE")
-                    line = ""
-                if line:
+                    uart_rx_buffer += bytes(raw).decode("utf-8", "ignore")
+
+                uart_last_rx_ms = time.ticks_ms()
+                lines, uart_rx_buffer = extract_uart_commands(uart_rx_buffer, False)
+                for line in lines:
+                    await handle_uart_line(line)
+        elif uart_rx_buffer:
+            idle_ms = time.ticks_diff(time.ticks_ms(), uart_last_rx_ms)
+            if idle_ms > 50:
+                lines, uart_rx_buffer = extract_uart_commands(uart_rx_buffer, True)
+                for line in lines:
                     await handle_uart_line(line)
         await uasyncio.sleep_ms(10)
 
@@ -288,9 +424,7 @@ async def handle_uart_line(line):
         return
 
     if len(parts) == 2 and parts[0] == "GET" and parts[1] == "TUBES":
-        for record in tim.get_all_tube_records():
-            send_tube_line(record)
-        send_uart_line("TUBES_END")
+        send_all_tubes()
         return
 
     if len(parts) == 2 and parts[0] == "GET" and parts[1] == "AMP_STATES":
@@ -308,6 +442,73 @@ async def handle_uart_line(line):
             send_uart_line("ERR BAD_VALUE")
             return
         send_tube_line(record)
+        return
+
+    if len(parts) >= 3 and parts[0] == "SET" and parts[1] == "TUBE":
+        try:
+            tube_num = int(parts[2])
+        except ValueError:
+            send_uart_line("ERR BAD_VALUE")
+            return
+        if tube_num < 1:
+            send_uart_line("ERR BAD_VALUE")
+            return
+
+        kv = parse_kv_tokens(parts[3:])
+        active = parse_active(kv.get("ACT", ""))
+        age_min = parse_nonneg_int(kv.get("MIN", ""))
+        age_hour = parse_nonneg_int(kv.get("HOUR", ""))
+
+        if active is None or age_min is None or age_hour is None:
+            send_uart_line("ERR BAD_VALUE")
+            return
+
+        record = tim.set_tube_record(tube_num, active, age_min, age_hour)
+        if record is None:
+            send_uart_line("ERR BAD_VALUE")
+            return
+
+        # Keep ACK distinct from "TUBE ..." data records for host parsers.
+        send_uart_line("ACK SET NUM=%d" % tube_num)
+        send_tube_line(record)
+        send_tube_save_done_line(tube_num)
+        return
+
+    if len(parts) >= 2 and parts[0] == "ADD" and parts[1] == "TUBE":
+        kv = parse_kv_tokens(parts[2:])
+        tube_num = parse_nonneg_int(kv.get("NUM", ""))
+        active = parse_active(kv.get("ACT", ""))
+        age_min = parse_nonneg_int(kv.get("MIN", ""))
+        age_hour = parse_nonneg_int(kv.get("HOUR", ""))
+
+        if tube_num is None or tube_num < 1 or active is None or age_min is None or age_hour is None:
+            send_uart_line("ERR BAD_VALUE")
+            return
+
+        record = tim.add_tube_record(tube_num, active, age_min, age_hour)
+        if record is None:
+            send_uart_line("ERR TUBE_EXISTS NUM=%d" % tube_num)
+            return
+
+        send_uart_line("ACK ADD NUM=%d" % record["number"])
+        send_tube_line(record)
+        return
+
+    if len(parts) == 3 and parts[0] == "DEL" and parts[1] == "TUBE":
+        try:
+            tube_num = int(parts[2])
+        except ValueError:
+            send_uart_line("ERR BAD_VALUE")
+            return
+        if tube_num < 1:
+            send_uart_line("ERR BAD_VALUE")
+            return
+
+        if not tim.delete_tube_record(tube_num):
+            send_uart_line("ERR BAD_VALUE")
+            return
+
+        send_uart_line("ACK DEL NUM=%d" % tube_num)
         return
 
     if len(parts) >= 3 and parts[0] == "SET":
@@ -377,6 +578,7 @@ async def amp_body():
     uasyncio.create_task(sel_rotated())
     uasyncio.create_task(operate_input())
     uasyncio.create_task(mute_input())
+    uasyncio.create_task(uart_output())
     uasyncio.create_task(uart_input())
     uasyncio.create_task(seconds_beat())
     uasyncio.create_task(minutes_beat())
@@ -387,7 +589,10 @@ async def amp_body():
     while True:
         if not q.empty():
             message = await q.get()
+            prev_state = st.state
             st.dispatch(message, vol, sel, mut, dis, rel, op, tmp, tim)
+            if st.state != prev_state:
+                send_state_line()
             if message == SECOND_BEAT:
                 current_temp = getattr(tmp, "temperature", None)
                 if current_temp != last_temp_published:
@@ -405,6 +610,14 @@ async def amp_body():
                 send_state_line()
             elif message in (SW_OPERATE_ON, SW_OPERATE_OFF, SW_MUTE_ON, SW_MUTE_OFF):
                 send_state_line()
+
+            if message == MINUTE_BEAT and st.state in (
+                STATE_OPERATE,
+                STATE_BALANCE,
+                STATE_TT_DISPLAY,
+                STATE_BRIGHTNESS,
+            ):
+                send_all_tubes()
         await uasyncio.sleep_ms(10)
 
 
