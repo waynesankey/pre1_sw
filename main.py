@@ -539,7 +539,12 @@ async def handle_uart_line(line):
             if number not in (0, 1):
                 send_uart_line("ERR BAD_VALUE")
                 return
+            target = 1 if number == 1 else 0
+            send_uart_line("ACK MUTE START TARGET=%d" % target)
             changed = mut.set_mute_from_uart(number == 1)
+            send_uart_line(
+                "ACK MUTE DONE TARGET=%d CHANGED=%d" % (target, 1 if changed else 0)
+            )
         elif key == "BRI":
             old_bri = dis.get_brightness()
             dis.set_brightness(number)
@@ -548,12 +553,17 @@ async def handle_uart_line(line):
             if number not in (0, 1):
                 send_uart_line("ERR BAD_VALUE")
                 return
+            target = 1 if number == 1 else 0
+            send_uart_line("ACK STBY START TARGET=%d" % target)
             if number == 1 and st.state != STATE_STANDBY:
                 st.goto_standby(mut, rel, dis)
                 changed = True
             elif number == 0 and st.state == STATE_STANDBY:
                 st.goto_filament(dis, rel)
                 changed = True
+            send_uart_line(
+                "ACK STBY DONE TARGET=%d CHANGED=%d" % (target, 1 if changed else 0)
+            )
         else:
             send_uart_line("ERR UNKNOWN_CMD")
             return
