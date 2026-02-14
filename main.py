@@ -127,6 +127,16 @@ def send_uart_line(line):
             pass
 
 
+def send_uart_line_immediate(line):
+    text = str(line).replace("\r", " ").replace("\n", " ").strip()
+    if not text:
+        return
+    try:
+        uart0.write((text + "\n").encode("utf-8"))
+    except Exception as exc:
+        print("UART TX immediate error:", exc)
+
+
 async def uart_output():
     while True:
         line = await uart_tx_q.get()
@@ -138,7 +148,7 @@ async def uart_output():
         await uasyncio.sleep_ms(2)
 
 
-def send_state_line():
+def build_state_line():
     temp_value = getattr(tmp, "temperature", None)
     if temp_value is None:
         temp_field = "NA"
@@ -156,7 +166,15 @@ def send_state_line():
             temp_field,
         )
     )
-    send_uart_line(line)
+    return line
+
+
+def send_state_line():
+    send_uart_line(build_state_line())
+
+
+def send_state_line_immediate():
+    send_uart_line_immediate(build_state_line())
 
 
 def send_tube_line(record):
@@ -580,6 +598,7 @@ async def handle_uart_line(line):
 async def amp_body():
     global last_temp_published
     apply_persisted_state(load_persisted_state())
+    sel.on_select_changed = send_state_line_immediate
     last_temp_published = getattr(tmp, "temperature", None)
 
     uasyncio.create_task(l_pb_input())

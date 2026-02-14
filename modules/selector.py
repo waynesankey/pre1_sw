@@ -9,6 +9,7 @@ class Selector:
         self.rel = rel_obj
         self.available_selects = self._load_available_selects()
         self.select = self.available_selects[0]
+        self.on_select_changed = None
 
     def _load_available_selects(self):
         try:
@@ -42,6 +43,11 @@ class Selector:
         if select_new == select_old:
             return False
         self.select = select_new
+        if self.on_select_changed is not None:
+            try:
+                self.on_select_changed()
+            except Exception:
+                pass
 
         print("In update_select, new select is", self.select)
         volume_left = self.vol.get_current_volume_left()
@@ -58,6 +64,11 @@ class Selector:
         self.select = self._normalize_select(select_value)
         if self.select == select_old:
             return False
+        if self.on_select_changed is not None:
+            try:
+                self.on_select_changed()
+            except Exception:
+                pass
         volume_left = self.vol.get_current_volume_left()
         volume_right = self.vol.get_current_volume_right()
         self.mus.vol_down_soft(volume_left, volume_right)
